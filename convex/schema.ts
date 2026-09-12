@@ -1,4 +1,7 @@
-import { experienceFields } from "./experienceValidators";
+import {
+  experienceFields,
+  storedAnswersValidator,
+} from "./experienceValidators";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
@@ -50,14 +53,6 @@ const spreadPackValidator = v.object({
   source: v.union(v.literal("gateway"), v.literal("fallback")),
 });
 
-const answersValidator = v.object({
-  watch: v.string(),
-  noise: v.string(),
-  sleep: v.string(),
-  fog: v.array(v.string()),
-  intent: v.string(),
-});
-
 export default defineSchema({
   notes: defineTable({
     author: v.string(),
@@ -68,7 +63,7 @@ export default defineSchema({
   profiles: defineTable({
     ...experienceFields,
     sessionId: v.string(),
-    answers: answersValidator,
+    answers: storedAnswersValidator,
     spread: v.optional(spreadPackValidator),
     spreadAt: v.optional(v.number()),
     asks: v.optional(

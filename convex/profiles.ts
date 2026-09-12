@@ -1,6 +1,13 @@
-import { experienceFields } from "./experienceValidators";
+import {
+  dashboardValidator,
+  experienceFields,
+  profileV2,
+  storedAnswersValidator,
+  turnValidator,
+} from "./experienceValidators";
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { profileSchema } from "../lib/onboarding/questions";
 
 const MAX_LIST = 6;
 const MAX_SESSION = 80;
@@ -73,7 +80,7 @@ const profileValidator = v.object({
   _id: v.id("profiles"),
   _creationTime: v.number(),
   sessionId: v.string(),
-  answers: answersValidator,
+  answers: storedAnswersValidator,
   spread: v.optional(spreadPackValidator),
   spreadAt: v.optional(v.number()),
   asks: v.optional(v.array(askValidator)),
@@ -326,14 +333,6 @@ export const saveAsk = mutation({
   },
 });
 
-// V2 widens the existing profile; older records remain readable during rollout.
-import {
-  dashboardValidator,
-  profileV2,
-  turnValidator,
-} from "./experienceValidators";
-import { profileSchema } from "../lib/onboarding/questions";
-
 export const saveExperience = mutation({
   args: { sessionId: v.string(), profile: profileV2 },
   returns: v.id("profiles"),
@@ -366,6 +365,8 @@ export const saveExperience = mutation({
         spread: undefined,
         spreadAt: undefined,
         conversation: [],
+        keel: undefined,
+        catalogSource: undefined,
       });
       return existing._id;
     }

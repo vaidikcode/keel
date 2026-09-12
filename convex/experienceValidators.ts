@@ -95,6 +95,67 @@ export const dashboardValidator = v.object({
     }),
   ),
 });
+export const answersValidator = v.object({
+  watch: v.string(),
+  noise: v.string(),
+  sleep: v.string(),
+  fog: v.array(v.string()),
+  intent: v.string(),
+});
+
+/** Production still has Mind Over Money rows. Keep these so schema push can succeed. */
+export const legacyAnswersValidator = v.object({
+  experience: v.string(),
+  goal: v.string(),
+  assets: v.array(v.string()),
+  risk: v.string(),
+  confusions: v.array(v.string()),
+  impulse: v.string(),
+  horizon: v.string(),
+});
+
+export const storedAnswersValidator = v.union(
+  answersValidator,
+  legacyAnswersValidator,
+);
+
+export const keelValidator = v.object({
+  line: v.string(),
+  experience: v.string(),
+  assets: v.array(v.string()),
+  risk: v.string(),
+  dashboard: v.array(
+    v.object({
+      id: v.string(),
+      title: v.string(),
+      summary: v.string(),
+      kind: v.string(),
+    }),
+  ),
+  glossary: v.array(
+    v.object({
+      term: v.string(),
+      plain: v.string(),
+    }),
+  ),
+  riskIndicator: v.object({
+    id: v.string(),
+    title: v.string(),
+    level: v.string(),
+    how: v.string(),
+  }),
+  decisionFlow: v.object({
+    id: v.string(),
+    title: v.string(),
+    how: v.string(),
+  }),
+});
+
+export const catalogSourceValidator = v.union(
+  v.literal("gateway"),
+  v.literal("fallback"),
+);
+
 export const experienceFields = {
   profileV2: v.optional(profileV2),
   revision: v.optional(v.number()),
@@ -116,4 +177,6 @@ export const experienceFields = {
       ),
     }),
   ),
+  keel: v.optional(keelValidator),
+  catalogSource: v.optional(catalogSourceValidator),
 };

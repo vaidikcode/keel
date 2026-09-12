@@ -130,7 +130,8 @@ export function Onboarding() {
       await save({ sessionId: readSessionId(), profile });
       localStorage.removeItem(DRAFT);
       router.push("/dashboard");
-    } catch {
+    } catch (err) {
+      console.error("Could not save onboarding answers", err);
       setError(
         "We couldn't save your answers. They are still here—please try again.",
       );
