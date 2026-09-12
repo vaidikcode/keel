@@ -45,7 +45,7 @@ function AssetPageInner({ id }: { id: string }) {
   const keel = useKeel();
   const params = useSearchParams();
   const fromParam = params.get("from");
-  const { status, data, error } = useAssetData(id, keel.sessionId);
+  const { status, data, error } = useAssetData(id, keel.sessionId, keel.authHeaders);
   const [days, setDays] = useState(365);
   const from: CategoryId | null = isCategoryId(fromParam) ? fromParam : data && isCategoryId(data.category.id) ? data.category.id : null;
 

@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { convexForRequest } from "@/lib/server/convexClient";
+import { convexForRequest, withAuthHeader } from "@/lib/server/convexClient";
 import { convexErrorResponse } from "@/lib/server/convexError";
 import { api } from "@/convex/_generated/api";
 import { migrateProfile, type Profile } from "@/lib/onboarding/questions";
@@ -87,9 +87,10 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     const body = build({ id, snapshot: sampleSnapshot(category.id), details: null, profile: sampleProfile, sample: true, warnings: ["sample"] });
     return Response.json(body);
   }
-  const client = await convexForRequest();
-  if (!client)
+  const convex = await convexForRequest(request);
+  if (!convex)
     return Response.json({ error: "Temporarily unavailable." }, { status: 503 });
+  const { client, authState } = convex;
   try {
     const profileDoc = sessionId
       ? await client.query(api.profiles.getBySession, { sessionId })
@@ -113,8 +114,8 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
       warnings: [...snapshot.warnings, ...(stale ? ["stale"] : []), ...(refreshing ? ["refreshing"] : [])],
     });
     if (!body) return Response.json({ error: "We couldn't find that option." }, { status: 404 });
-    return Response.json(body);
+    return withAuthHeader(Response.json(body), authState);
   } catch (error) {
-    return convexErrorResponse(error, "We couldn't load this option. Please try again.");
+    return withAuthHeader(convexErrorResponse(error, "We couldn't load this option. Please try again."), authState);
   }
 }

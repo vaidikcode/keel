@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { z } from "zod";
-import { convexForRequest } from "@/lib/server/convexClient";
+import { convexForRequest, withAuthHeader } from "@/lib/server/convexClient";
 import { convexErrorResponse } from "@/lib/server/convexError";
 import { api } from "@/convex/_generated/api";
 import { migrateProfile } from "@/lib/onboarding/questions";
@@ -57,9 +57,10 @@ export async function POST(request: Request) {
   const categoryId = body.categoryId as (typeof CATEGORY_IDS)[number];
   if (body.sessionId === "demo") return Response.json(sampleResponse(categoryId));
 
-  const client = await convexForRequest();
-  if (!client)
+  const convex = await convexForRequest(request);
+  if (!convex)
     return Response.json({ error: "Your dashboard is temporarily unavailable." }, { status: 503 });
+  const { client, authState } = convex;
   try {
     const profileDoc = await client.query(api.profiles.getBySession, { sessionId: body.sessionId });
     if (!profileDoc)
@@ -105,11 +106,11 @@ export async function POST(request: Request) {
       ),
       warnings: snapshot.warnings,
     });
-    return Response.json(response);
+    return withAuthHeader(Response.json(response), authState);
   } catch (error) {
-    return convexErrorResponse(
+    return withAuthHeader(convexErrorResponse(
       error,
       "We couldn't load this category. Your answers are saved; please try again.",
-    );
+    ), authState);
   }
 }

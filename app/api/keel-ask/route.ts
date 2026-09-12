@@ -1,6 +1,6 @@
 import { generateText, Output, stepCountIs } from "ai";
 import { z } from "zod";
-import { convexForRequest } from "@/lib/server/convexClient";
+import { convexForRequest, withAuthHeader } from "@/lib/server/convexClient";
 import { convexErrorResponse } from "@/lib/server/convexError";
 import { api } from "@/convex/_generated/api";
 import { migrateProfile, nextStep, profileAnswers } from "@/lib/onboarding/questions";
@@ -35,8 +35,8 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   const body = parsed.data;
-  const client = await convexForRequest();
-  if (!client)
+  const convex = await convexForRequest(request);
+  if (!convex)
     return Response.json(
       {
         error:
@@ -46,6 +46,7 @@ export async function POST(request: Request) {
     );
   let reserved = false,
     revision = 0;
+  const { client, authState } = convex;
   try {
     const profile = await client.query(api.profiles.getBySession, {
       sessionId: body.sessionId,
@@ -232,7 +233,7 @@ export async function POST(request: Request) {
         { error: "Your answers changed while I was replying. Please refresh." },
         { status: 409 },
       );
-    return Response.json({ ...reply, id });
+    return withAuthHeader(Response.json({ ...reply, id }), authState);
   } catch (error) {
     if (reserved)
       await client
@@ -243,9 +244,9 @@ export async function POST(request: Request) {
           turn: null,
         })
         .catch(() => {});
-    return convexErrorResponse(
+    return withAuthHeader(convexErrorResponse(
       error,
       "I couldn't finish that answer. Your charts and previous conversation are still available.",
-    );
+    ), authState);
   }
 }

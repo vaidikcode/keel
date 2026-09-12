@@ -61,6 +61,7 @@ type KeelApi = {
   setPaused: (v: boolean) => void;
   toggleSaved: (assetId: string) => Promise<void>;
   withDemo: (href: string) => string;
+  authHeaders: () => Promise<Record<string, string>>;
 };
 
 const KeelCtx = createContext<(KeelState & KeelApi) | null>(null);
@@ -85,7 +86,7 @@ function write(key: string, value: string) {
 
 export function KeelProvider({ children }: { children: ReactNode }) {
   const session = useKeelSession();
-  const { sessionId, demo, withDemo } = session;
+  const { sessionId, demo, withDemo, authHeaders } = session;
   const profileDoc = useQuery(
     api.profiles.getBySession,
     sessionId && !demo ? { sessionId } : "skip",
@@ -215,7 +216,7 @@ export function KeelProvider({ children }: { children: ReactNode }) {
       try {
         const response = await fetch("/api/keel-ask", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...(await authHeaders()) },
           body: JSON.stringify({
             sessionId,
             requestId: requestId.current.id,
@@ -255,7 +256,7 @@ export function KeelProvider({ children }: { children: ReactNode }) {
         setBusy(false);
       }
     },
-    [attached, busy, demo, open, pageContext, sessionId, setOpen],
+    [attached, authHeaders, busy, demo, open, pageContext, sessionId, setOpen],
   );
 
   const newConversation = useCallback(async () => {
@@ -328,8 +329,9 @@ export function KeelProvider({ children }: { children: ReactNode }) {
       setPaused,
       toggleSaved,
       withDemo,
+      authHeaders,
     }),
-    [ask, attach, attached, busy, clearAttached, demo, detach, dragOver, dragging, error, lastReply, newConversation, notice, open, pageContext, paused, profile, profileDoc, quickAsks, revision, sampleSaved, say, session.isLoaded, sessionId, setOpen, setPageContext, setPaused, toggleSaved, turns, unread, withDemo],
+    [ask, attach, attached, authHeaders, busy, clearAttached, demo, detach, dragOver, dragging, error, lastReply, newConversation, notice, open, pageContext, paused, profile, profileDoc, quickAsks, revision, sampleSaved, say, session.isLoaded, sessionId, setOpen, setPageContext, setPaused, toggleSaved, turns, unread, withDemo],
   );
   return <KeelCtx.Provider value={value}>{children}</KeelCtx.Provider>;
 }

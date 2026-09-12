@@ -1,3 +1,4 @@
+import { ConvexError } from "convex/values";
 /**
  * Turn a Convex/route failure into a response the UI can act on. Auth
  * rejections from KEEL_REQUIRE_AUTH become a 401 with a clear message instead
@@ -6,7 +7,9 @@
  */
 export function convexErrorResponse(error: unknown, fallback: string): Response {
   const message = error instanceof Error ? error.message : String(error);
-  if (/Sign in to continue|belongs to another account/i.test(message))
+  // Production Convex redacts plain Error messages; ConvexError data survives.
+  const data = error instanceof ConvexError ? (error.data as { code?: string } | undefined) : undefined;
+  if (data?.code === "auth" || /Sign in to continue|belongs to another account/i.test(message))
     return Response.json(
       { error: "Your sign-in didn't reach Keel's data. Please sign out and back in, then try again.", code: "auth" },
       { status: 401 },

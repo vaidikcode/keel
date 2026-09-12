@@ -1,3 +1,4 @@
+import { ConvexError } from "convex/values";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 
 /**
@@ -8,13 +9,14 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 export async function requireOwner(ctx: QueryCtx | MutationCtx, sessionId: string): Promise<void> {
   if (process.env.KEEL_REQUIRE_AUTH !== "true") return;
   const identity = await ctx.auth.getUserIdentity();
-  if (!identity) throw new Error("Sign in to continue.");
-  if (identity.subject !== sessionId) throw new Error("This profile belongs to another account.");
+  if (!identity) throw new ConvexError({ code: "auth", message: "Sign in to continue." });
+  if (identity.subject !== sessionId)
+    throw new ConvexError({ code: "auth", message: "This profile belongs to another account." });
 }
 
 /** Shared cache writes only need some signed-in identity when enforcement is on. */
 export async function requireSignedIn(ctx: QueryCtx | MutationCtx): Promise<void> {
   if (process.env.KEEL_REQUIRE_AUTH !== "true") return;
   const identity = await ctx.auth.getUserIdentity();
-  if (!identity) throw new Error("Sign in to continue.");
+  if (!identity) throw new ConvexError({ code: "auth", message: "Sign in to continue." });
 }

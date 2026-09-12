@@ -2,7 +2,11 @@
 import { useEffect, useState } from "react";
 import { assetResponseSchema, type AssetResponse } from "@/lib/dashboard/api";
 
-export function useAssetData(id: string, sessionId: string | null) {
+export function useAssetData(
+  id: string,
+  sessionId: string | null,
+  authHeaders: () => Promise<Record<string, string>>,
+) {
   const [status, setStatus] = useState<"loading" | "ready" | "error" | "missing">("loading");
   const [data, setData] = useState<AssetResponse | null>(null);
   const [error, setError] = useState("");
@@ -11,7 +15,13 @@ export function useAssetData(id: string, sessionId: string | null) {
     const ac = new AbortController();
     // eslint-disable-next-line react-hooks/set-state-in-effect -- mark the new request as loading before fetching.
     setStatus("loading");
-    fetch(`/api/asset/${encodeURIComponent(id)}?sessionId=${encodeURIComponent(sessionId)}`, { signal: ac.signal })
+    authHeaders()
+      .then((headers) =>
+        fetch(`/api/asset/${encodeURIComponent(id)}?sessionId=${encodeURIComponent(sessionId)}`, {
+          signal: ac.signal,
+          headers,
+        }),
+      )
       .then(async (r) => {
         const body = await r.json();
         if (r.status === 404) {
@@ -28,6 +38,6 @@ export function useAssetData(id: string, sessionId: string | null) {
         setStatus("error");
       });
     return () => ac.abort();
-  }, [id, sessionId]);
+  }, [authHeaders, id, sessionId]);
   return { status, data, error };
 }

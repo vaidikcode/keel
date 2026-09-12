@@ -17,7 +17,7 @@ type ThoughtsStatus = "idle" | "loading" | "ready" | "error" | "unavailable";
 export function CategoryDashboard({ categoryId }: { categoryId: CategoryId }) {
   const keel = useKeel();
   const category = CATEGORY_BY_ID[categoryId];
-  const { status, data, error, refresh, setThoughts } = useCategoryData(categoryId, keel.sessionId, keel.revision);
+  const { status, data, error, refresh, setThoughts } = useCategoryData(categoryId, keel.sessionId, keel.revision, keel.authHeaders);
   const [thoughtsStatus, setThoughtsStatus] = useState<ThoughtsStatus>("idle");
   const requested = useRef("");
 
@@ -38,11 +38,15 @@ export function CategoryDashboard({ categoryId }: { categoryId: CategoryId }) {
     if (requested.current === key) return;
     requested.current = key;
     setThoughtsStatus("loading");
-    fetch("/api/thoughts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId: keel.sessionId, categoryId }),
-    })
+    keel
+      .authHeaders()
+      .then((headers) =>
+        fetch("/api/thoughts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...headers },
+          body: JSON.stringify({ sessionId: keel.sessionId, categoryId }),
+        }),
+      )
       .then(async (r) => {
         const body = await r.json();
         if (r.status === 503) {
@@ -54,7 +58,7 @@ export function CategoryDashboard({ categoryId }: { categoryId: CategoryId }) {
         setThoughtsStatus("ready");
       })
       .catch(() => setThoughtsStatus("error"));
-  }, [categoryId, data, keel.revision, keel.sessionId, setThoughts]);
+  }, [categoryId, data, keel, setThoughts]);
 
   if (keel.isLoaded && !keel.demo && !keel.sessionId)
     return (
