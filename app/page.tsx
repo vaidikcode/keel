@@ -1,5 +1,5 @@
-import { NoteBoard } from "@/components/NoteBoard";
+import { Onboarding } from "@/components/onboarding/Onboarding";
 
 export default function Home() {
-  return <NoteBoard />;
+  return <Onboarding />;
 }

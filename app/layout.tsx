@@ -1,30 +1,32 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Antonio, Outfit } from "next/font/google";
 import { ConvexClientProvider } from "./ConvexClientProvider";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const antonio = Antonio({
+  variable: "--font-lateral-src",
   subsets: ["latin"],
+  weight: ["700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const outfit = Outfit({
+  variable: "--font-aeonik-src",
   subsets: ["latin"],
+  weight: ["500", "700"],
 });
 
 export const metadata: Metadata = {
   title: "Keel",
-  description: "A small Next.js + Convex notes app",
+  description: "Investing, without the noise.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${antonio.variable} ${outfit.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">
+      <body className="flex min-h-full flex-col font-aeonik-pro">
         <ConvexClientProvider>{children}</ConvexClientProvider>
       </body>
     </html>

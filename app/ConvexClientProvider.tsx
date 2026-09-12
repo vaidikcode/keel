@@ -31,21 +31,21 @@ export function ConvexClientProvider({ children }: { children: ReactNode }) {
 
   if (!client) {
     return (
-      <div className="flex flex-1 items-center justify-center px-6">
-        <div className="max-w-lg rounded-2xl border border-white/10 bg-[#101828] p-8 text-zinc-100 shadow-2xl">
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-teal-300">
+      <div className="flex flex-1 items-center justify-center bg-sky-wash px-6">
+        <div className="max-w-lg rounded-[20px] border border-carbon bg-paper-white p-8 text-carbon">
+          <p className="font-aeonik-pro text-[12px] font-bold tracking-[0.032em] uppercase">
             Convex not connected
           </p>
-          <h1 className="mt-3 text-2xl font-semibold tracking-tight">
-            Missing or invalid Convex URL
+          <h1 className="mt-3 font-aeonik-pro text-[30px] font-bold leading-[1.1]">
+            Missing Convex URL
           </h1>
-          <p className="mt-3 text-sm leading-6 text-zinc-400">
-            Set <code>NEXT_PUBLIC_CONVEX_URL</code> to a single URL with no extra
-            lines. Local: <code>http://127.0.0.1:3210</code>. Production:{" "}
+          <p className="mt-3 font-aeonik-pro text-[15px] font-medium leading-[1.39] tracking-[-0.01em]">
+            Set <code>NEXT_PUBLIC_CONVEX_URL</code> to a single URL. Local:{" "}
+            <code>http://127.0.0.1:3210</code>. Production:{" "}
             <code>https://youthful-manatee-537.convex.cloud</code>.
           </p>
-          <pre className="mt-4 overflow-x-auto rounded-xl bg-black/50 p-4 font-mono text-sm text-teal-200">
-            bunx convex dev
+          <pre className="mt-4 overflow-x-auto rounded-[20px] border border-carbon bg-carbon px-4 py-3 font-mono text-sm text-paper-white">
+            bun run dev:backend
           </pre>
         </div>
       </div>
