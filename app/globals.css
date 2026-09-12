@@ -288,6 +288,30 @@ strong {
   border-bottom: 1px solid var(--line);
   gap: 20px;
 }
+.onboard-header-end {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.auth-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.auth-controls .cl-avatarBox {
+  width: 30px;
+  height: 30px;
+}
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 40px 20px;
+  background: var(--canvas);
+}
 .header-note {
   font-size: 12px;
   color: var(--muted);
@@ -833,6 +857,10 @@ strong {
 .sidebar-bottom > a {
   margin-left: auto;
   color: var(--muted);
+}
+.sidebar-bottom .cl-avatarBox {
+  width: 30px;
+  height: 30px;
 }
 .tiny-avatar {
   width: 30px;
@@ -2100,7 +2128,7 @@ strong {
   .onboard-header .wordmark {
     font-size: 26px;
   }
-  .onboard-header > .text-button {
+  .onboard-header-end .text-button {
     font-size: 11px;
   }
   .welcome {

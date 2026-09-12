@@ -1,8 +1,10 @@
 "use client";
+import { useAuth } from "@clerk/nextjs";
 import { useMutation, useConvex } from "convex/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { AuthControls } from "@/components/auth/AuthControls";
 import { api } from "@/convex/_generated/api";
 import {
   defaultProfile,
@@ -57,6 +59,7 @@ function Choices({
 }
 export function Onboarding() {
   const router = useRouter(),
+    { isLoaded, userId } = useAuth(),
     client = useConvex(),
     save = useMutation(api.profiles.saveExperience);
   const [profile, setProfile] = useState<Profile>(defaultProfile);
@@ -71,24 +74,35 @@ export function Onboarding() {
   const extra = profile.intent === "choose",
     total = extra ? 8 : 5;
   useEffect(() => {
+    if (!isLoaded) return;
     let active = true;
     async function restore() {
       try {
-        const draft = localStorage.getItem(DRAFT);
-        if (draft) {
-          const d = JSON.parse(draft);
-          const restored = migrateProfile(d.profile);
+        const draftRaw = localStorage.getItem(DRAFT);
+        const draft = draftRaw ? JSON.parse(draftRaw) : null;
+        const restored = draft ? migrateProfile(draft.profile) : null;
+        if (restored) {
           setProfile(restored);
           setStep(
             Math.max(
               -1,
-              Math.min(d.step ?? -1, restored.intent === "choose" ? 8 : 5),
+              Math.min(draft.step ?? -1, restored.intent === "choose" ? 8 : 5),
             ),
           );
         }
         setReady(true);
+        if (
+          userId &&
+          restored &&
+          new URLSearchParams(location.search).has("continue")
+        ) {
+          await save({ sessionId: userId, profile: restored });
+          localStorage.removeItem(DRAFT);
+          if (active) router.replace("/dashboard");
+          return;
+        }
         const existing = await client.query(api.profiles.getBySession, {
-          sessionId: readSessionId(),
+          sessionId: userId ?? readSessionId(),
         });
         if (!active) return;
         setHasProfile(Boolean(existing));
@@ -105,7 +119,7 @@ export function Onboarding() {
     return () => {
       active = false;
     };
-  }, [client]);
+  }, [client, isLoaded, router, save, userId]);
   useEffect(() => {
     if (ready && step >= 0) {
       try {
@@ -127,7 +141,13 @@ export function Onboarding() {
     setBusy(true);
     setError("");
     try {
-      await save({ sessionId: readSessionId(), profile });
+      if (!userId) {
+        router.push(
+          "/sign-in?redirect_url=" + encodeURIComponent("/?continue=1"),
+        );
+        return;
+      }
+      await save({ sessionId: userId, profile });
       localStorage.removeItem(DRAFT);
       router.push("/dashboard");
     } catch (err) {
@@ -176,13 +196,16 @@ export function Onboarding() {
           <span className="brand-dot">●</span>
         </Link>
         <span className="header-note">A little clarity goes a long way.</span>
-        {hasProfile ? (
-          <Link className="text-button" href="/dashboard">
-            Your dashboard <Icon name="arrow" size={16} />
-          </Link>
-        ) : (
-          <span className="label">YOUR MONEY, UNDERSTOOD</span>
-        )}
+        <div className="onboard-header-end">
+          {hasProfile ? (
+            <Link className="text-button" href="/dashboard">
+              Your dashboard <Icon name="arrow" size={16} />
+            </Link>
+          ) : (
+            <span className="label">YOUR MONEY, UNDERSTOOD</span>
+          )}
+          <AuthControls />
+        </div>
       </header>
       {step < 0 ? (
         <main className="welcome">

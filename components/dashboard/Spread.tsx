@@ -16,6 +16,7 @@ import {
   nextStep,
   type Profile,
 } from "@/lib/onboarding/questions";
+import { UserButton } from "@clerk/nextjs";
 import { Icon } from "@/components/ui/Icon";
 import { KeelMascot } from "./KeelMascot";
 import { PriceChart } from "./PriceChart";
@@ -333,7 +334,11 @@ export function Spread({
           </Link>
         </div>
         <div className="sidebar-bottom">
-          <span className="tiny-avatar">Y</span>
+          {dashboard.sample ? (
+            <span className="tiny-avatar">Y</span>
+          ) : (
+            <UserButton />
+          )}
           <span>
             Your space<small>One step at a time</small>
           </span>

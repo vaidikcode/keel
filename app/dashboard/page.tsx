@@ -1,23 +1,31 @@
 "use client";
+import { useAuth } from "@clerk/nextjs";
 import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/convex/_generated/api";
 import { Spread } from "@/components/dashboard/Spread";
 import { KeelMascot } from "@/components/dashboard/KeelMascot";
-import { readSessionId } from "@/lib/session";
 import { defaultProfile, migrateProfile } from "@/lib/onboarding/questions";
 import { sampleDashboard } from "@/lib/dashboard/catalog";
 import { dashboardSchema, type Dashboard } from "@/lib/dashboard/model";
 export default function DashboardPage() {
+  const { userId, isLoaded } = useAuth();
   const [sessionId, setSessionId] = useState<string | null>(null),
     [demo, setDemo] = useState(false);
   useEffect(() => {
-    // Read browser storage after hydration, preserving older session IDs.
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- browser identity is read once after SSR hydration.
-    setSessionId(readSessionId());
-    setDemo(new URLSearchParams(location.search).get("demo") === "1");
-  }, []);
+    const isDemo = new URLSearchParams(location.search).get("demo") === "1";
+    // Demo stays public; a signed-in dashboard is keyed to the Clerk user.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- auth and demo mode are read after hydration.
+    setDemo(isDemo);
+    if (isDemo) {
+      setSessionId(null);
+      return;
+    }
+    if (isLoaded && userId) {
+      setSessionId(userId);
+    }
+  }, [isLoaded, userId]);
   return demo ? (
     <Spread
       dashboard={sampleDashboard()}
