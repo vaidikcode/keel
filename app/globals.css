@@ -12,6 +12,9 @@
   --amber: #b1813b;
   --coral: #b66050;
   --ivory: #f2f1e7;
+  --ease-expo-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-expo-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-expo-in-out: cubic-bezier(0.87, 0, 0.13, 1);
   --font-aeonik-pro: var(--font-aeonik-src), Arial, sans-serif;
   --color-sky-wash: #f7f8f4;
   --color-carbon: #183446;
@@ -23,9 +26,6 @@
   --color-carbon: #183446;
   --color-paper-white: #fff;
   --color-sky-wash: #f7f8f4;
-  --color-soft-mist: #edf0ea;
-  --color-sunburst: #e9dfa3;
-  --color-mint-pop: #bcdccc;
 }
 * {
   box-sizing: border-box;
@@ -308,9 +308,93 @@ strong {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 28px;
+  gap: 34px;
   padding: 40px 20px;
   background: var(--canvas);
+}
+.auth-page .brand-mark {
+  width: 72px;
+  height: 72px;
+  font-size: 35px;
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+  letter-spacing: -3px;
+  padding-right: 4px;
+  box-shadow: 0 6px 0 var(--ink);
+}
+.auth-page .wordmark {
+  font-size: 0;
+  gap: 0;
+}
+.auth-page .brand-dot {
+  display: none;
+}
+/* Clerk's card, wearing our clothes. These are our own class names, handed to
+   Clerk through its `appearance` prop, so none of this depends on Clerk's
+   internal markup the way styling `.cl-*` directly would. */
+/* The frame goes on the root, not the inner card: Clerk renders its footer as
+   a sibling of the card, so bordering the card left the extrusion cutting
+   across the middle with the footer hanging outside it. */
+.auth-page .keel-auth-root {
+  border: 2px solid var(--ink);
+  border-radius: 18px;
+  box-shadow: 0 7px 0 var(--ink);
+  background: var(--surface);
+  overflow: hidden;
+}
+.auth-page .keel-auth-card {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--surface);
+  padding: 32px 30px 26px;
+}
+.auth-page .keel-auth-title {
+  font-family: var(--font-lateral);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: -0.8px;
+  font-size: 30px;
+  color: var(--ink);
+}
+.auth-page .keel-auth-sub {
+  color: var(--muted);
+  font-size: 13px;
+}
+.auth-page .keel-auth-cta {
+  background: var(--harbor-deep);
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  box-shadow: 0 4px 0 var(--ink);
+  text-transform: none;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+  transition:
+    transform 0.24s var(--ease-expo-out),
+    box-shadow 0.24s var(--ease-expo-out);
+}
+.auth-page .keel-auth-cta:hover {
+  background: #174b8f;
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 var(--ink);
+}
+.keel-auth-input,
+.auth-page .keel-auth-social {
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.auth-page .keel-auth-input:focus {
+  outline: 2px solid var(--harbor);
+  outline-offset: 1px;
+}
+.auth-page .keel-auth-link {
+  color: var(--harbor-deep);
+  font-weight: 600;
+}
+.auth-page .keel-auth-hidden {
+  display: none;
 }
 .header-note {
   font-size: 12px;
@@ -494,13 +578,11 @@ strong {
   letter-spacing: 1px;
 }
 .question-layout {
-  display: grid;
-  grid-template-columns: 280px minmax(0, 650px);
-  gap: 85px;
-  max-width: 1120px;
+  display: block;
+  max-width: 780px;
   width: 100%;
   margin: 0 auto;
-  padding: 48px 35px 55px;
+  padding: 64px 35px 150px;
   flex: 1;
 }
 .onboard-aside {
@@ -606,56 +688,134 @@ strong {
   flex-direction: column;
   gap: 10px;
 }
+/* A choice is two faces of a cube, 90deg apart — not a plane flipping to its
+   backside. The label sits on the front face; the explanation is the cube's
+   UNDERSIDE, pre-rotated -90deg so it is edge-on and invisible at rest. On
+   hover the whole box rotates 90deg about X: the label tips up and away while
+   the underside rises into view, exactly like turning a physical block over. */
 .choice {
+  --face-h: 78px;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 12px;
+  perspective: 620px;
+  /* The extrusion belongs to the socket, not the faces, so the black block
+     stays put while the cube turns inside it. */
+  box-shadow: 0 6px 0 var(--ink);
+  margin-bottom: 6px;
+}
+.choice-flip {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: var(--face-h);
+  transform-style: preserve-3d;
+  transition: transform 0.52s var(--ease-expo-out);
+}
+.choice:hover .choice-flip,
+.choice:focus-visible .choice-flip {
+  transform: rotateX(90deg);
+}
+.choice-face {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 17px 18px;
+  padding: 16px 18px;
   text-align: left;
-  width: 100%;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 11px;
-  min-height: 65px;
-  transition:
-    background 0.18s,
-    border-color 0.18s;
+  border-radius: 12px;
+  border: 1.5px solid var(--ink);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow: hidden;
 }
-.choice:hover {
-  border-color: #a9c4e5;
+/* Bolder, darker blue on the face the user reads first. */
+.choice-front {
+  background: var(--harbor-deep);
+  color: #fff;
+  transform: translateZ(calc(var(--face-h) / 2));
+}
+/* The lighter blue underside. Dark ink on a pale ground keeps the longer
+   sentence readable where white on saturated blue would not. */
+.choice-back {
+  background: var(--harbor-wash);
+  color: var(--ink);
+  transform: rotateX(-90deg) translateZ(calc(var(--face-h) / 2));
+}
+.choice-back small {
+  font-size: 12.5px;
+  line-height: 1.42;
 }
 .choice.selected {
-  background: var(--harbor-wash);
-  border-color: #91b4e1;
+  box-shadow:
+    0 6px 0 var(--ink),
+    0 0 0 2px var(--ink);
 }
 .choice-number {
-  color: #8a979a;
+  color: #a8c6ea;
   font-size: 10px;
   width: 19px;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 .choice strong {
-  font-size: 14px;
-}
-.choice small {
-  display: block;
-  color: var(--muted);
-  font-size: 12px;
-  margin-top: 4px;
+  font-size: 15px;
+  letter-spacing: -0.2px;
 }
 .choice-check {
   margin-left: auto;
-  border: 1px solid #d5deda;
+  border: 1.5px solid rgb(255 255 255 / 0.5);
   border-radius: 50%;
-  width: 21px;
-  height: 21px;
+  width: 22px;
+  height: 22px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
 }
 .selected .choice-check {
-  background: var(--harbor);
-  border-color: var(--harbor);
-  color: white;
+  background: #fff;
+  border-color: #fff;
+  color: var(--harbor-deep);
+}
+/* Hover does not exist on touch, so the same copy is shown inline instead. */
+.choice-inline {
+  display: none;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 8px 18px 0;
+  text-align: left;
+}
+@media (hover: none) {
+  .choice {
+    box-shadow: 0 4px 0 var(--ink);
+    padding-bottom: 10px;
+    background: var(--harbor-deep);
+    border: 1.5px solid var(--ink);
+  }
+  .choice-flip,
+  .choice:hover .choice-flip {
+    transform: none;
+    height: auto;
+    min-height: 62px;
+  }
+  .choice-face {
+    position: relative;
+    border: 0;
+  }
+  .choice-front {
+    transform: none;
+  }
+  .choice-back {
+    display: none;
+  }
+  .choice-inline {
+    display: block;
+    color: rgb(255 255 255 / 0.82);
+  }
 }
 .field-label {
   display: block;
@@ -2627,5 +2787,785 @@ strong {
   }
   .chart-controls button {
     font-size: 11px;
+  }
+}
+
+/* ── Play layer ─────────────────────────────────────────────────────────────
+   The palette stays calm; the interaction carries the personality. */
+
+
+
+/* Brutalist display face against the Outfit body copy. Antonio was already
+   being downloaded and applied to nothing. */
+.welcome-copy h1,
+.question-title {
+  font-family: var(--font-lateral);
+  font-weight: 700;
+}
+.question-title {
+  letter-spacing: -1.2px;
+}
+.welcome-copy h1 em {
+  font-family: Georgia, serif;
+}
+
+/* Stickers are pasted down, not faded in. The fold line is a diagonal that
+   sweeps from the top-right to the bottom-left and stops short, so the
+   bottom-left corner stays lifted. Peeling runs the same line backwards but
+   only part way — then the sticker comes off and is re-pasted elsewhere,
+   which reads as handling a sticker rather than rewinding a video. */
+.sticker-note {
+  --sx: 0px;
+  --sy: 0px;
+  --tilt: 0deg;
+  --paste-dur: 900ms;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  /* The flap grows past 100% while peeling; without this it spills across the
+     page as a giant diagonal instead of staying on the card. The radius keeps
+     the clipped edge following the sticker's own shape. */
+  overflow: hidden;
+  border-radius: 14px;
+  transform: translate(var(--sx), var(--sy)) rotate(var(--tilt));
+  transition:
+    transform 0.42s var(--ease-expo-out),
+    box-shadow 0.3s var(--ease-expo-out);
+}
+/* Nothing on the board until its turn comes. */
+.sticker-note.is-waiting {
+  clip-path: polygon(100% 0%, 100% 0%, 100% 0%, 100% 0%, 100% 0%);
+}
+.sticker-note.is-pasting {
+  animation: sticker-paste var(--paste-dur) var(--ease-expo-out) both;
+}
+.sticker-note.is-pasting .sticker-peel {
+  animation: peel-flap-paste var(--paste-dur) var(--ease-expo-out) both;
+}
+.sticker-note.is-waiting .sticker-peel {
+  width: 200%;
+  height: 200%;
+}
+.sticker-note.is-stuck,
+.sticker-note.is-dragging {
+  clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 22% 100%, 0% 78%);
+}
+.sticker-note.is-peeling {
+  animation: sticker-peel-off 0.82s var(--ease-expo-in) both;
+}
+.sticker-note.is-peeling .sticker-peel {
+  animation: peel-flap-off 0.82s var(--ease-expo-in) both;
+}
+/* The flap is the sticker's own back, so it tracks the clip exactly. Because
+   it is a child of the clipped card it can only ever show on the stuck side
+   of the fold, which is what makes the crease read as one edge. */
+@keyframes peel-flap-paste {
+  from {
+    width: 200%;
+    height: 200%;
+  }
+  to {
+    width: 22%;
+    height: 22%;
+  }
+}
+@keyframes peel-flap-off {
+  0% {
+    width: 22%;
+    height: 22%;
+  }
+  46%,
+  100% {
+    width: 188%;
+    height: 188%;
+  }
+}
+/* Smoothed down from the top-right corner toward the bottom-left. */
+@keyframes sticker-paste {
+  0% {
+    clip-path: polygon(100% 0%, 100% 0%, 100% 0%, 100% 0%, 100% 0%);
+    transform: translate(var(--sx), var(--sy)) rotate(calc(var(--tilt) - 9deg));
+  }
+  38% {
+    clip-path: polygon(50% 0%, 100% 0%, 100% 50%, 100% 50%, 50% 0%);
+  }
+  72% {
+    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 100% 100%, 0% 0%);
+  }
+  100% {
+    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 22% 100%, 0% 78%);
+    transform: translate(var(--sx), var(--sy)) rotate(var(--tilt));
+  }
+}
+/* Back up the same diagonal to roughly 60%, then away. */
+@keyframes sticker-peel-off {
+  0% {
+    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 22% 100%, 0% 78%);
+    transform: translate(var(--sx), var(--sy)) rotate(var(--tilt));
+    opacity: 1;
+  }
+  26% {
+    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 100% 100%, 0% 0%);
+  }
+  /* Peels quickly and far, leaving the back half of the same 0.82s for the
+     sticker to come away and sail off. */
+  46% {
+    clip-path: polygon(40% 0%, 100% 0%, 100% 60%, 100% 60%, 40% 0%);
+    transform: translate(var(--sx), var(--sy))
+      rotate(calc(var(--tilt) + 9deg));
+    opacity: 1;
+  }
+  100% {
+    clip-path: polygon(40% 0%, 100% 0%, 100% 60%, 100% 60%, 40% 0%);
+    transform: translate(calc(var(--sx) + 86px), calc(var(--sy) - 72px))
+      rotate(calc(var(--tilt) + 22deg)) scale(0.9);
+    opacity: 0;
+  }
+}
+.note-top {
+  --tilt: -6deg;
+}
+.note-bottom {
+  --tilt: 5deg;
+}
+.sticker-note.is-dragging {
+  cursor: grabbing;
+  transition: none;
+  box-shadow: -14px 18px 0 rgb(24 52 70 / 0.18);
+  z-index: 6;
+}
+.sticker-note:focus-visible {
+  outline: 2px solid var(--harbor);
+  outline-offset: 3px;
+}
+/* The lifted corner; geometry is defined with the brutalist pass below. */
+.sticker-peel {
+  position: absolute;
+  pointer-events: none;
+}
+
+/* Budget range: a low/high pair, because a beginner is likelier to know their
+   band than an exact figure. */
+.budget-range {
+  position: relative;
+  margin: 54px 0 8px;
+  padding-bottom: 18px;
+}
+.budget-track {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+}
+.budget-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--harbor);
+  border-radius: 3px;
+}
+.budget-handle {
+  position: absolute;
+  inset: 0 0 18px 0;
+  pointer-events: none;
+}
+.budget-slider {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  margin: 0;
+  background: none;
+  appearance: none;
+  pointer-events: none;
+}
+.budget-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--harbor-deep);
+  border: 1px solid var(--ink);
+  box-shadow: 0 3px 0 var(--ink);
+  cursor: grab;
+  pointer-events: auto;
+}
+.budget-slider::-moz-range-thumb {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--harbor-deep);
+  border: 1px solid var(--ink);
+  cursor: grab;
+  pointer-events: auto;
+}
+.budget-slider:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+/* The amount bubble is the input: hovering a handle and typing edits it. */
+.budget-bubble {
+  position: absolute;
+  left: var(--pos);
+  bottom: 26px;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  white-space: nowrap;
+}
+.budget-value,
+.budget-input {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 6px 11px;
+  border-radius: 9px;
+  border: 1px solid var(--ink);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 3px 0 var(--ink);
+}
+.budget-input {
+  width: 108px;
+}
+.budget-handle:hover .budget-value {
+  background: var(--harbor-wash);
+}
+.budget-tip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: #fff;
+  font-size: 10.5px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 7px;
+}
+.budget-readout {
+  position: absolute;
+  left: 0;
+  bottom: -10px;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Motion is optional everywhere. The undersides stay reachable without it. */
+@media (prefers-reduced-motion: reduce) {
+  .choice-flip,
+  .choice:hover .choice-flip,
+  .choice:focus-visible .choice-flip {
+    transform: none;
+    height: auto;
+    min-height: 62px;
+  }
+  .choice-face {
+    position: relative;
+  }
+  .choice-front {
+    transform: none;
+  }
+  .choice-back {
+    display: none;
+  }
+  .choice-inline {
+    display: block;
+  }
+  .sticker-note,
+  .sticker-note.is-waiting,
+  .sticker-note.is-pasting {
+    animation: none;
+    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 22% 100%, 0% 78%);
+    transform: translate(var(--sx), var(--sy)) rotate(var(--tilt));
+    transition: none;
+  }
+  .wordmark:hover .brand-mark {
+    transform: none;
+  }
+}
+.motion-paused .choice-flip,
+.motion-paused .sticker-note,
+.motion-paused .brand-mark {
+  transform: none !important;
+}
+
+/* ── Brutalist pass ─────────────────────────────────────────────────────────
+   Hard black outlines and physical extrusions on the calm harbor palette.
+   Weight and depth carry the attitude; the colours stay quiet. */
+
+/* Circular badge, black ring — a stamped mark rather than a soft app tile. */
+.brand-mark {
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+  width: 38px;
+  height: 38px;
+  font-size: 19px;
+  padding-right: 2px;
+}
+.wordmark {
+  letter-spacing: -2.1px;
+}
+
+/* Scrolling strip across the very top of the landing page. */
+.welcome-marquee {
+  overflow: hidden;
+  border-bottom: 2px solid var(--ink);
+  background: var(--harbor-wash);
+  padding: 9px 0;
+  white-space: nowrap;
+}
+.welcome-marquee div {
+  display: inline-flex;
+  gap: 42px;
+  padding-right: 42px;
+  animation: marquee 26s linear infinite;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.7px;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Display type gets heavier and tighter. */
+.welcome-copy h1 {
+  font-size: clamp(56px, 6.4vw, 96px);
+  letter-spacing: -3px;
+  line-height: 0.94;
+  text-transform: uppercase;
+}
+.welcome-copy h1 em {
+  text-transform: none;
+  letter-spacing: -2.5px;
+}
+.eyebrow,
+.label {
+  font-weight: 700;
+}
+
+/* Primary actions sit on a hard extrusion and press into it. */
+.button.primary,
+.button.secondary {
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  font-weight: 600;
+  box-shadow: 0 4px 0 var(--ink);
+  transition:
+    background 0.2s,
+    transform 0.24s var(--ease-expo-out),
+    box-shadow 0.24s var(--ease-expo-out);
+}
+.button.primary:hover:not(:disabled),
+.button.secondary:hover:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 var(--ink);
+}
+.button.primary:active:not(:disabled),
+.button.secondary:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 var(--ink);
+}
+
+/* Stickers are cut out of card, not floated on a hairline. */
+.sticker-note.world-note {
+  border: 2px solid var(--ink);
+  border-radius: 14px;
+}
+.welcome-foot {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* The marquee is decoration; it stops when motion is unwelcome. */
+@media (prefers-reduced-motion: reduce) {
+  .welcome-marquee div {
+    animation: none;
+  }
+}
+.motion-paused .welcome-marquee div {
+  animation: none !important;
+}
+@media (max-width: 700px) {
+  .welcome-copy h1 {
+    font-size: clamp(40px, 12vw, 56px);
+    letter-spacing: -1.6px;
+  }
+}
+.marquee-run {
+  display: inline-flex;
+  gap: 42px;
+  padding-right: 42px;
+}
+
+/* ── Question view ──────────────────────────────────────────────────────────
+   One question, nothing beside it. */
+.question-content > h1,
+.question-title {
+  font-size: clamp(34px, 4vw, 50px);
+  line-height: 0.98;
+  letter-spacing: -1.4px;
+  text-transform: uppercase;
+}
+.question-caption {
+  font-size: 15px;
+  margin: 18px 0 38px;
+  max-width: 560px;
+}
+.question-content {
+  padding-top: 26px;
+}
+.question-bottom {
+  margin-top: 44px;
+}
+
+/* Progress lives at the foot of the screen and Keel rides it. */
+.progress-rail {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 5% 26px;
+  pointer-events: none;
+  z-index: 5;
+}
+.progress-rail-track {
+  position: relative;
+  flex: 1;
+  height: 10px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--surface);
+}
+.progress-rail-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--harbor);
+  border-radius: 999px;
+  transition: width 0.55s var(--ease-expo-out);
+}
+.progress-rail-keel {
+  position: absolute;
+  top: 50%;
+  /* Sits on top of the rail rather than inside it, so he reads as walking
+     along the bar instead of being swallowed by the fill. */
+  transform: translate(-50%, -74%);
+  transition: left 0.55s var(--ease-expo-out);
+  /* No drop-shadow here: filtering an animated SVG of this complexity on every
+     repaint is expensive enough to stall the compositor. */
+}
+.progress-rail-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+/* ── Rocket CTA ─────────────────────────────────────────────────────────────
+   Rests pointing up-right, swings to point LEFT on hover as it charges, then
+   turns and leaves to the right when pressed. */
+.rocket-button {
+  gap: 14px;
+  padding: 16px 26px;
+  font-size: 15px;
+}
+.rocket-slot {
+  position: relative;
+  width: 22px;
+  height: 24px;
+  overflow: visible;
+  display: inline-grid;
+  place-items: center;
+}
+.rocket-svg {
+  width: 22px;
+  height: 24px;
+  color: #fff;
+  --aim: 90deg;
+  transform: rotate(var(--aim));
+  transition: transform 0.55s var(--ease-expo-out);
+  animation: rocket-charge 0.9s ease-in-out infinite;
+}
+.rocket-trail {
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+/* Nose to the left, shaking harder — wound up, not yet released. */
+.rocket-button:hover:not(:disabled) .rocket-svg,
+.rocket-button:focus-visible:not(:disabled) .rocket-svg {
+  /* Nose swings back to the left: wound up, not yet released. */
+  --aim: -90deg;
+  animation-duration: 0.28s;
+}
+@keyframes rocket-charge {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  25% {
+    translate: 0.7px -0.6px;
+  }
+  50% {
+    translate: -0.6px 0.7px;
+  }
+  75% {
+    translate: 0.6px 0.5px;
+  }
+}
+.rocket-button.is-launching .rocket-svg,
+.rocket-button.is-launching:hover .rocket-svg {
+  --aim: 90deg;
+  animation: rocket-launch 0.62s var(--ease-expo-in) forwards;
+}
+.rocket-button.is-launching .rocket-trail {
+  opacity: 1;
+}
+/* Dips back to load, then leaves to the right and returns for the next press. */
+/* Nose level and pointing right, it recoils inside the button then leaves
+   through the right-hand edge. */
+/* Translate is written BEFORE rotate so the travel stays in world axes; with
+   rotate first the rocket leaves sideways instead of out the right edge. */
+@keyframes rocket-launch {
+  0% {
+    transform: translate(0, 0) rotate(90deg);
+    opacity: 1;
+  }
+  22% {
+    transform: translate(-13px, 0) rotate(90deg);
+    opacity: 1;
+  }
+  68% {
+    transform: translate(150px, 0) rotate(90deg);
+    opacity: 0;
+  }
+  69% {
+    transform: translate(-16px, 0) rotate(90deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(0, 0) rotate(90deg);
+    opacity: 1;
+  }
+}
+
+/* ── Stickers ───────────────────────────────────────────────────────────────
+   The bottom-LEFT corner lifts off the page, more so on hover, and a click
+   peels the whole thing away. */
+.sticker-note.world-note {
+  padding: 19px 24px;
+}
+/* The clip already removes the corner, so the page shows through on its own.
+   This is the sticker's own back folded over: a bright crease at the fold
+   falling away to a darker underside, the way paper shades when it curls.
+   Sized in percent so its diagonal always coincides with the clip's. */
+.sticker-peel {
+  right: auto;
+  left: 0;
+  bottom: 0;
+  width: 22%;
+  height: 22%;
+  opacity: 1;
+  background: linear-gradient(
+    to top right,
+    transparent 0 49%,
+    var(--ink) 49% 55%,
+    #e8eef6 55%,
+    #b9c8da 78%,
+    #93a7bd 100%
+  );
+  /* A curled corner is round, not a cut point. */
+  border-bottom-left-radius: 14px;
+  border-top-right-radius: 60% 42%;
+  transition:
+    width 0.3s var(--ease-expo-out),
+    height 0.3s var(--ease-expo-out);
+}
+/* Hovering lifts the corner a little further without peeling it. */
+.sticker-note.is-stuck:hover {
+  clip-path: polygon(100% 0%, 100% 100%, 34% 100%, 0% 66%, 0% 0%);
+  box-shadow: -9px 11px 0 rgb(24 52 70 / 0.13);
+}
+.sticker-note.is-stuck:hover .sticker-peel {
+  width: 34%;
+  height: 34%;
+}
+.sticker-chip {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+}
+.chip-amber {
+  background: #f0e7cf;
+  color: var(--amber);
+}
+.chip-sea {
+  background: #dcebe2;
+  color: var(--sea-glass);
+}
+.note-coin {
+  right: -10px;
+  top: 6px;
+  --tilt: 7deg;
+}
+.note-pace {
+  left: 20px;
+  bottom: 34px;
+  --tilt: -5deg;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rocket-svg,
+  .rocket-button.is-launching .rocket-svg {
+    animation: none;
+  }
+  .progress-rail-fill,
+  .progress-rail-keel {
+    transition: none;
+  }
+}
+.motion-paused .rocket-svg {
+  animation: none !important;
+}
+@media (max-width: 700px) {
+  .progress-rail {
+    padding: 0 20px 16px;
+  }
+  .question-layout {
+    padding: 34px 20px 120px;
+  }
+}
+/* The label steps out of the way so the rocket has a clear runway. */
+.rocket-label {
+  transition: opacity 0.14s ease-out;
+}
+.rocket-button.is-launching .rocket-label {
+  opacity: 0;
+}
+.rocket-button {
+  overflow: visible;
+}
+
+/* The mark and the single link float over the page instead of sitting in a
+   header strip, so the content owns the full height. */
+.floating-mark {
+  position: absolute;
+  top: 30px;
+  left: 0;
+  right: 0;
+  /* Mark hard left; everything else sits centred in the middle column, so
+     moving the mark never drags the controls with it. */
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 0 4%;
+  z-index: 7;
+  pointer-events: none;
+}
+.onboarding .brand-mark {
+  width: 82px;
+  height: 82px;
+  font-size: 40px;
+  border-width: 3px;
+  letter-spacing: -3px;
+  padding-right: 4px;
+  box-shadow: 0 7px 0 var(--ink);
+  /* No spin — just the physical press the other controls have. */
+  transition:
+    transform 0.24s var(--ease-expo-out),
+    box-shadow 0.24s var(--ease-expo-out);
+}
+.onboarding .wordmark:hover .brand-mark {
+  transform: translateY(3px);
+  box-shadow: 0 4px 0 var(--ink);
+}
+.onboarding .wordmark:active .brand-mark {
+  transform: translateY(6px);
+  box-shadow: 0 1px 0 var(--ink);
+}
+.floating-mark > * {
+  pointer-events: auto;
+}
+/* Mark hard left, Demo hard right, matched in height so the bar reads as one
+   row of controls rather than two unrelated objects. */
+.floating-mark-end {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  grid-column: 3;
+  justify-self: end;
+}
+.demo-button {
+  height: 82px;
+  min-height: 82px;
+  padding: 0 34px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  border-radius: 16px;
+  box-shadow: 0 7px 0 var(--ink);
+}
+.demo-button:hover {
+  transform: translateY(3px);
+  box-shadow: 0 4px 0 var(--ink);
+}
+.demo-button:active {
+  transform: translateY(6px);
+  box-shadow: 0 1px 0 var(--ink);
+}
+.auth-controls {
+  display: flex;
+  align-items: center;
+}
+.onboarding {
+  position: relative;
+  min-height: 100vh;
+}
+/* Big and bold: the hero fills the screen rather than floating in it. */
+.welcome {
+  max-width: 1480px;
+  min-height: 100vh;
+  padding: 120px 5% 90px;
+  gap: 60px;
+  align-content: center;
+}
+.welcome-copy h1 {
+  font-size: clamp(62px, 8vw, 128px);
+  letter-spacing: -4px;
+  margin: 30px 0;
+}
+.welcome-copy > p {
+  max-width: 430px;
+  font-size: 19px;
+}
+.welcome-world {
+  height: min(74vh, 620px);
+}
+.onboard-footer {
+  position: relative;
+  z-index: 2;
+}
+@media (max-width: 980px) {
+  .welcome {
+    min-height: auto;
+    padding: 96px 6% 60px;
+  }
+  .welcome-world {
+    height: 440px;
   }
 }

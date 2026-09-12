@@ -1,6 +1,7 @@
 import {
   dashboardValidator,
   experienceFields,
+  intakeValidator,
   profileV2,
   storedAnswersValidator,
   turnValidator,
@@ -8,6 +9,7 @@ import {
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { profileSchema } from "../lib/onboarding/questions";
+import { deriveSignals, intakeSchema } from "../lib/onboarding/signals";
 
 const MAX_LIST = 6;
 const MAX_SESSION = 80;
@@ -334,11 +336,18 @@ export const saveAsk = mutation({
 });
 
 export const saveExperience = mutation({
-  args: { sessionId: v.string(), profile: profileV2 },
+  // `intake` is optional so existing callers keep compiling and older clients
+  // mid-rollout can still save a profile without it.
+  args: {
+    sessionId: v.string(),
+    profile: profileV2,
+    intake: v.optional(intakeValidator),
+  },
   returns: v.id("profiles"),
   handler: async (ctx, args) => {
     const sessionId = clip(args.sessionId, MAX_SESSION);
     const profile = profileSchema.parse(args.profile);
+    const intake = args.intake ? intakeSchema.parse(args.intake) : undefined;
     const existing = await ctx.db
       .query("profiles")
       .withIndex("by_sessionId", (q) => q.eq("sessionId", sessionId))
@@ -356,10 +365,19 @@ export const saveExperience = mutation({
       intent: "learn",
     };
     if (existing) {
+      const revision = (existing.revision ?? 0) + 1;
       await ctx.db.patch("profiles", existing._id, {
         profileV2: profile,
         answers,
-        revision: (existing.revision ?? 0) + 1,
+        revision,
+        intake: intake ?? existing.intake,
+        // Signals are derived state: recompute with the edit, or clear them so
+        // nothing downstream can serve inference from stale answers.
+        signals: intake
+          ? deriveSignals(intake, revision)
+          : existing.intake
+            ? deriveSignals(existing.intake, revision)
+            : undefined,
         dashboard: undefined,
         spread: undefined,
         spreadAt: undefined,
@@ -374,6 +392,8 @@ export const saveExperience = mutation({
       profileV2: profile,
       answers,
       revision: 1,
+      intake,
+      signals: intake ? deriveSignals(intake, 1) : undefined,
       createdAt: Date.now(),
     });
   },

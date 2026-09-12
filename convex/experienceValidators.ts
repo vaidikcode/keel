@@ -19,13 +19,11 @@ export const profileV2 = v.object({
     v.literal("future"),
     v.literal("unknown"),
   ),
-  country: v.union(
-    v.literal("US"),
-    v.literal("IN"),
-    v.literal("GB"),
-    v.literal("other"),
-  ),
-  currency: v.union(v.literal("USD"), v.literal("INR"), v.literal("GBP")),
+  // Widened from a 3/4-literal union to a free string so the intake can offer
+  // every ISO 3166 country and its ISO 4217 currency. Widening is safe for the
+  // schema push: every stored value ("US", "USD", ...) is already a string.
+  country: v.string(),
+  currency: v.string(),
   experience: v.union(
     v.literal("new"),
     v.literal("some"),
@@ -156,8 +154,79 @@ export const catalogSourceValidator = v.union(
   v.literal("fallback"),
 );
 
+/**
+ * The five fixed intake answers, identical for every user.
+ *
+ * Deliberately a sibling of `profileV2` rather than new fields inside it:
+ * `profileV2` is a v.object whose members are all required, so adding to it
+ * would invalidate every stored document that already has a v2 profile. As an
+ * optional sibling, documents of every generation (legacy Mind Over Money,
+ * current, v2) keep validating untouched.
+ */
+export const intakeValidator = v.object({
+  version: v.literal(1),
+  vehicle: v.union(
+    v.literal("trading"),
+    v.literal("stocks"),
+    v.literal("crypto"),
+    v.literal("unsure"),
+  ),
+  timescale: v.union(
+    v.literal("days"),
+    v.literal("months"),
+    v.literal("years"),
+    v.literal("decade"),
+  ),
+  country: v.string(),
+  currency: v.string(),
+  budgetLow: v.union(v.number(), v.null()),
+  budgetHigh: v.union(v.number(), v.null()),
+  riskBand: v.union(
+    v.literal("high"),
+    v.literal("balanced"),
+    v.literal("low"),
+    v.literal("veryLow"),
+  ),
+});
+
+/**
+ * Inference derived from `intake` by lib/onboarding/signals.ts. Read by the
+ * personalisation engine and the Keel companion; never re-derived downstream,
+ * so intake wording can change without shifting what consumers see.
+ */
+export const signalsValidator = v.object({
+  v: v.literal(1),
+  capturedAt: v.number(),
+  revision: v.number(),
+  incomeShareCap: v.number(),
+  volatilityTolerance: v.union(
+    v.literal("high"),
+    v.literal("moderate"),
+    v.literal("low"),
+    v.literal("none"),
+  ),
+  preferredKinds: v.array(v.string()),
+  horizonDays: v.number(),
+  cadence: v.union(
+    v.literal("day"),
+    v.literal("month"),
+    v.literal("year"),
+    v.literal("decade"),
+  ),
+  intradayIntent: v.boolean(),
+  overexposureFlag: v.boolean(),
+  balancedPortfolioRequired: v.boolean(),
+  confidence: v.union(
+    v.literal("stated"),
+    v.literal("inferred"),
+    v.literal("default"),
+  ),
+});
+
 export const experienceFields = {
   profileV2: v.optional(profileV2),
+  intake: v.optional(intakeValidator),
+  signals: v.optional(signalsValidator),
   revision: v.optional(v.number()),
   dashboard: v.optional(dashboardValidator),
   savedAssets: v.optional(v.array(v.string())),

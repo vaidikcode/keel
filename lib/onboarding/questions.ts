@@ -5,8 +5,10 @@ export const profileSchema = z.object({
   intent: z.enum(["learn", "choose", "understand"]),
   goal: z.enum(["explore", "purchase", "wealth", "retirement"]),
   horizon: z.enum(["soon", "medium", "long", "future", "unknown"]),
-  country: z.enum(["US", "IN", "GB", "other"]),
-  currency: z.enum(["USD", "INR", "GBP"]),
+  // ISO 3166-1 alpha-2 and ISO 4217. Widened from enums so the intake can
+  // offer every country; mirrors convex/experienceValidators.ts.
+  country: z.string().min(2).max(2),
+  currency: z.string().min(3).max(3),
   experience: z.enum(["new", "some", "experienced"]),
   watch: z.enum(["all", "stocks", "funds", "crypto"]),
   risk: z.enum(["careful", "balanced", "comfortable", "unknown"]),
@@ -50,12 +52,21 @@ export const riskLabels = {
   comfortable: "Larger price changes",
   unknown: "Still exploring risk",
 };
-export const currencyFormat = (amount: number, currency = "USD") =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  }).format(amount);
+export const currencyFormat = (amount: number, currency = "USD") => {
+  // Intl throws RangeError on an unknown currency code. Now that any ISO 4217
+  // code can reach this, fall back to a plain number rather than crashing.
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return `${new Intl.NumberFormat("en-US", {
+      maximumFractionDigits: 0,
+    }).format(amount)} ${currency}`;
+  }
+};
 
 export function migrateProfile(raw: unknown): Profile {
   const parsed = profileSchema.safeParse(raw);
