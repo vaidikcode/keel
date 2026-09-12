@@ -2819,14 +2819,14 @@ strong {
   --sy: 0px;
   --tilt: 0deg;
   --paste-dur: 900ms;
+  --peel-stop-x: 29%;
+  --peel-stop-y: 71%;
   cursor: grab;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
-  /* The flap grows past 100% while peeling; without this it spills across the
-     page as a giant diagonal instead of staying on the card. The radius keeps
-     the clipped edge following the sticker's own shape. */
-  overflow: hidden;
+  /* No overflow clip: keeping every clip-path vertex inside 0-100% is what
+     stops the fold spilling across the page, so the card stays free to lift. */
   border-radius: 14px;
   transform: translate(var(--sx), var(--sy)) rotate(var(--tilt));
   transition:
@@ -2852,10 +2852,10 @@ strong {
   clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 22% 100%, 0% 78%);
 }
 .sticker-note.is-peeling {
-  animation: sticker-peel-off 0.82s var(--ease-expo-in) both;
+  animation: sticker-peel-off var(--peel-dur, 520ms) var(--ease-expo-out) both;
 }
 .sticker-note.is-peeling .sticker-peel {
-  animation: peel-flap-off 0.82s var(--ease-expo-in) both;
+  animation: peel-flap-off var(--peel-dur, 520ms) var(--ease-expo-out) both;
 }
 /* The flap is the sticker's own back, so it tracks the clip exactly. Because
    it is a child of the clipped card it can only ever show on the stuck side
@@ -2875,10 +2875,10 @@ strong {
     width: 22%;
     height: 22%;
   }
-  46%,
+  62%,
   100% {
-    width: 188%;
-    height: 188%;
+    width: 129%;
+    height: 129%;
   }
 }
 /* Smoothed down from the top-right corner toward the bottom-left. */
@@ -2905,21 +2905,33 @@ strong {
     transform: translate(var(--sx), var(--sy)) rotate(var(--tilt));
     opacity: 1;
   }
-  26% {
+  34% {
     clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 100% 100%, 0% 0%);
   }
-  /* Peels quickly and far, leaving the back half of the same 0.82s for the
-     sticker to come away and sail off. */
-  46% {
-    clip-path: polygon(40% 0%, 100% 0%, 100% 60%, 100% 60%, 40% 0%);
-    transform: translate(var(--sx), var(--sy))
-      rotate(calc(var(--tilt) + 9deg));
+  /* Stops at 60% peeled — a sticker lifted off the page, not erased. */
+  62% {
+    clip-path: polygon(
+      var(--peel-stop-x) 0%,
+      100% 0%,
+      100% var(--peel-stop-y),
+      100% var(--peel-stop-y),
+      var(--peel-stop-x) 0%
+    );
+    transform: translate(var(--sx), calc(var(--sy) - 6px))
+      rotate(calc(var(--tilt) + 7deg)) scale(1.02);
     opacity: 1;
   }
+  /* Raised clear, then gone — it reappears close by rather than sailing off. */
   100% {
-    clip-path: polygon(40% 0%, 100% 0%, 100% 60%, 100% 60%, 40% 0%);
-    transform: translate(calc(var(--sx) + 86px), calc(var(--sy) - 72px))
-      rotate(calc(var(--tilt) + 22deg)) scale(0.9);
+    clip-path: polygon(
+      var(--peel-stop-x) 0%,
+      100% 0%,
+      100% var(--peel-stop-y),
+      100% var(--peel-stop-y),
+      var(--peel-stop-x) 0%
+    );
+    transform: translate(var(--sx), calc(var(--sy) - 26px))
+      rotate(calc(var(--tilt) + 13deg)) scale(1.07);
     opacity: 0;
   }
 }
@@ -3568,4 +3580,105 @@ strong {
   .welcome-world {
     height: 440px;
   }
+}
+
+/* ── Latest pass ────────────────────────────────────────────────────────────*/
+
+/* Shorter, louder, and set in the display face. */
+.demo-button {
+  height: 62px;
+  min-height: 62px;
+  padding: 0 30px;
+  /* Matches the mark: Outfit 700, not the display face. */
+  font-family: var(--font-aeonik-pro);
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  line-height: 1;
+  border-radius: 14px;
+  box-shadow: 0 6px 0 var(--ink);
+}
+.demo-button:hover {
+  transform: translateY(3px);
+  box-shadow: 0 3px 0 var(--ink);
+}
+.demo-button:active {
+  transform: translateY(5px);
+  box-shadow: 0 1px 0 var(--ink);
+}
+
+.eyebrow {
+  text-transform: none;
+  letter-spacing: 0.3px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Keel keeps waving for as long as you are on the welcome page. */
+.welcome-world .mascot-wave .fin-right {
+  animation: wave 0.9s ease-in-out infinite;
+}
+.welcome-world .world-mascot {
+  animation: keel-bob 3.4s ease-in-out infinite;
+}
+@keyframes keel-bob {
+  0%,
+  100% {
+    transform: rotate(-7deg) translateY(0);
+  }
+  50% {
+    transform: rotate(-7deg) translateY(-9px);
+  }
+}
+
+/* The rocket shakes in place; it never turns until it launches. */
+.rocket-button:hover:not(:disabled) .rocket-svg,
+.rocket-button:focus-visible:not(:disabled) .rocket-svg {
+  --aim: 90deg;
+  animation-duration: 0.26s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-world .mascot-wave .fin-right,
+  .welcome-world .world-mascot {
+    animation: none;
+  }
+}
+.motion-paused .welcome-world .mascot-wave .fin-right,
+.motion-paused .welcome-world .world-mascot {
+  animation: none !important;
+}
+
+/* Heavier now that Outfit 800 is loaded. Needs the extra class to outrank
+   `.button.secondary`, which sets 600. */
+.button.demo-button {
+  font-weight: 800;
+}
+
+/* Decoration in the questions: no pointer, no press. */
+.mark-idle {
+  cursor: default;
+  pointer-events: none;
+}
+/* Only the step count remains in that row. */
+.question-top {
+  justify-content: flex-end;
+}
+
+/* Get started wears the mark's blue, not the deeper action blue. */
+.button.rocket-button {
+  background: var(--harbor);
+}
+.button.rocket-button:hover:not(:disabled) {
+  background: var(--harbor-deep);
+}
+
+/* The dashboard wordmark is a control now, so it needs the button reset. */
+.wordmark-home {
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  text-align: left;
 }

@@ -6,6 +6,30 @@ type Phase = "waiting" | "pasting" | "stuck" | "peeling";
 
 const STORE = "keel-sticker-pos";
 
+/**
+ * TUNING — every timing knob for the sticker animation lives here.
+ *
+ * These are the single source of truth: the peel duration is handed to CSS as
+ * `--peel-dur`, so changing it here moves the animation and the detach timer
+ * together. Shape knobs (how far the corner lifts, where the peel stops) are
+ * the clip-path percentages in globals.css under "Stickers".
+ */
+const TUNING = {
+  /** Delay before a sticker starts pasting: base + up to `waitJitter`. */
+  waitBase: 170,
+  waitJitter: 702,
+  /** How long the paste sweep takes: base + up to `pasteJitter`. */
+  pasteBase: 430,
+  pasteJitter: 300,
+  /** How long the peel-and-lift takes. Drives CSS and the respawn timer. */
+  peel: 520,
+  /** Gap between vanishing and re-pasting. */
+  respawnGap: 140,
+  /** How far a peeled sticker hops before landing again, in px. */
+  hopMin: 46,
+  hopJitter: 54,
+} as const;
+
 function readOffsets(): Record<string, Offset> {
   try {
     const raw = localStorage.getItem(STORE);
@@ -20,6 +44,16 @@ function scatter(spread = 1): Offset {
   return {
     x: Math.round((Math.random() - 0.5) * 200 * spread),
     y: Math.round((Math.random() - 0.5) * 160 * spread),
+  };
+}
+
+/** A short hop from where it was, so a peeled sticker lands close by. */
+function nudge(from: Offset): Offset {
+  const angle = Math.random() * Math.PI * 2;
+  const dist = TUNING.hopMin + Math.random() * TUNING.hopJitter;
+  return {
+    x: Math.round(from.x + Math.cos(angle) * dist),
+    y: Math.round(from.y + Math.sin(angle) * dist),
   };
 }
 
@@ -61,8 +95,8 @@ export function StickerNote({
     // Random order and duration, seeded off the caller's stagger. All of it
     // runs on a timer rather than in the effect body, which also keeps
     // localStorage and Math.random out of the render path.
-    const wait = delay + 260 + Math.random() * 900;
-    const paste = 780 + Math.random() * 620;
+    const wait = delay + TUNING.waitBase + Math.random() * TUNING.waitJitter;
+    const paste = TUNING.pasteBase + Math.random() * TUNING.pasteJitter;
     after(0, () => {
       // No saved spot means scatter: a fresh visit should never lay the
       // stickers down in the same arrangement twice.
@@ -96,14 +130,14 @@ export function StickerNote({
   function peel() {
     if (phase !== "stuck") return;
     setPhase("peeling");
-    // Peel runs to 60%, then the sticker detaches and is re-pasted elsewhere.
-    after(820, () => {
-      const next = scatter();
+    // Peel runs to 60%, lifts clear, then re-pastes a short hop away.
+    after(TUNING.peel, () => {
+      const next = nudge(latest.current);
       latest.current = next;
       setOffset(next);
       persist(next);
       setPhase("waiting");
-      after(140, () => {
+      after(TUNING.respawnGap, () => {
         setPhase("pasting");
         after(timing.paste, () => setPhase("stuck"));
       });
@@ -152,6 +186,7 @@ export function StickerNote({
           "--sx": `${offset.x}px`,
           "--sy": `${offset.y}px`,
           "--paste-dur": `${timing.paste}ms`,
+          "--peel-dur": `${TUNING.peel}ms`,
           // Exposed so the stagger is observable without instrumenting time.
           "--paste-wait": `${Math.round(timing.wait)}ms`,
         } as React.CSSProperties

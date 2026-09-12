@@ -201,8 +201,7 @@ export function Onboarding() {
     [ready, setReady] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  const [help, setHelp] = useState(false),
-    [hasProfile, setHasProfile] = useState(false);
+  const [help, setHelp] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const interacted = useRef(false);
   const total = 5;
@@ -249,7 +248,6 @@ export function Onboarding() {
           sessionId: userId ?? readSessionId(),
         });
         if (!active) return;
-        setHasProfile(Boolean(existing));
         if (!draft && existing && !interacted.current) {
           setProfile(migrateProfile(existing.profileV2 ?? existing.answers));
           const parsed = intakeSchema.safeParse(existing.intake);
@@ -360,30 +358,34 @@ export function Onboarding() {
           mark and the one link float over the page so the design owns the
           whole screen. */}
       <div className="floating-mark">
-        <Link href="/" className="wordmark" aria-label="Keel home">
-          <span className="brand-mark">k.</span>
-        </Link>
-        <div className="floating-mark-end">
-          {hasProfile ? (
-            <Link className="text-button" href="/dashboard">
-              Your dashboard <Icon name="arrow" size={16} />
-            </Link>
-          ) : null}
-          <Link
-            className="button secondary demo-button"
-            href="/dashboard?demo=1"
-          >
-            Demo
+        {step < 0 ? (
+          <Link href="/" className="wordmark" aria-label="Keel home">
+            <span className="brand-mark">k.</span>
           </Link>
-        </div>
+        ) : (
+          /* Once the questions are open the mark is decoration only. There is
+             nothing useful behind it here, and leaving it clickable dropped
+             people back onto the landing page mid-flow. */
+          <span className="wordmark mark-idle" aria-hidden="true">
+            <span className="brand-mark">k.</span>
+          </span>
+        )}
+        {step < 0 ? (
+          <div className="floating-mark-end">
+            <Link
+              className="button secondary demo-button"
+              href={userId ? "/dashboard" : "/dashboard?demo=1"}
+            >
+              {userId ? "DASHBOARD" : "DEMO"}
+            </Link>
+          </div>
+        ) : null}
       </div>
       {step < 0 ? (
         <>
           <main className="welcome">
           <section className="welcome-copy">
-            <span className="eyebrow">
-              <span className="status-dot" /> A CALMER WAY TO START
-            </span>
+            <span className="eyebrow">Your finances are your friend</span>
             <h1>
               Your money.
               <br />A little more
@@ -413,9 +415,6 @@ export function Onboarding() {
               >
                 Get started
               </RocketButton>
-              <Link className="text-button" href="/dashboard?demo=1">
-                Explore an example <Icon name="chevron" size={16} />
-              </Link>
             </div>
             <div className="welcome-foot">
               <span>
@@ -494,16 +493,6 @@ export function Onboarding() {
         <main className="question-layout">
           <section className="question-panel">
             <div className="question-top">
-              <button
-                className="text-button"
-                onClick={() => {
-                  setStep((s) => s - 1);
-                  setHelp(false);
-                }}
-                disabled={busy}
-              >
-                <Icon name="back" size={16} /> Back
-              </button>
               <span className="label">
                 {step >= total
                   ? "YOUR STARTING POINT"

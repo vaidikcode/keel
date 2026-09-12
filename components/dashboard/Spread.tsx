@@ -297,10 +297,17 @@ export function Spread({
   return (
     <div className={`dashboard-shell ${paused ? "motion-paused" : ""}`}>
       <aside className="sidebar">
-        <Link href="/" className="wordmark">
+        {/* Returns to Overview from whichever tab you are on; it is not a way
+            out of the app. */}
+        <button
+          type="button"
+          className="wordmark wordmark-home"
+          aria-label="Back to overview"
+          onClick={() => setView("overview")}
+        >
           <span className="brand-mark">k.</span>keel
           <span className="brand-dot">●</span>
-        </Link>
+        </button>
         <span className="sidebar-caption">A LITTLE MORE CLARITY</span>
         <nav aria-label="Main navigation">
           {(
