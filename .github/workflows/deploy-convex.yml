@@ -1,0 +1,28 @@
+# Pushes Convex functions in this repo to the shared production deployment
+# (keel / youthful-manatee-537). Requires repo secret CONVEX_DEPLOY_KEY
+# (production deploy key). Local `convex dev` never uses this key.
+name: Deploy Convex
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: convex-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Push backend to production Convex
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - run: bun install --frozen-lockfile
+      - name: Deploy Convex functions
+        run: bunx convex deploy
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
