@@ -1,6 +1,6 @@
 import { generateText, Output, stepCountIs } from "ai";
 import { z } from "zod";
-import { ConvexHttpClient } from "convex/browser";
+import { convexForRequest } from "@/lib/server/convexClient";
 import { api } from "@/convex/_generated/api";
 import { migrateProfile, nextStep, profileAnswers } from "@/lib/onboarding/questions";
 import { replySchema } from "@/lib/dashboard/model";
@@ -34,8 +34,8 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   const body = parsed.data;
-  const url = process.env.NEXT_PUBLIC_CONVEX_URL?.trim().split(/\s+/)[0];
-  if (!url)
+  const client = await convexForRequest();
+  if (!client)
     return Response.json(
       {
         error:
@@ -43,7 +43,6 @@ export async function POST(request: Request) {
       },
       { status: 503 },
     );
-  const client = new ConvexHttpClient(url);
   let reserved = false,
     revision = 0;
   try {

@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { z } from "zod";
-import { ConvexHttpClient } from "convex/browser";
+import { convexForRequest } from "@/lib/server/convexClient";
 import { api } from "@/convex/_generated/api";
 import { migrateProfile } from "@/lib/onboarding/questions";
 import { CATEGORY_BY_ID, CATEGORY_IDS, isCategoryId } from "@/lib/market/categories";
@@ -56,10 +56,9 @@ export async function POST(request: Request) {
   const categoryId = body.categoryId as (typeof CATEGORY_IDS)[number];
   if (body.sessionId === "demo") return Response.json(sampleResponse(categoryId));
 
-  const url = process.env.NEXT_PUBLIC_CONVEX_URL?.trim().split(/\s+/)[0];
-  if (!url)
+  const client = await convexForRequest();
+  if (!client)
     return Response.json({ error: "Your dashboard is temporarily unavailable." }, { status: 503 });
-  const client = new ConvexHttpClient(url);
   try {
     const profileDoc = await client.query(api.profiles.getBySession, { sessionId: body.sessionId });
     if (!profileDoc)

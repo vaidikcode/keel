@@ -1,6 +1,6 @@
 import { generateText, Output } from "ai";
 import { z } from "zod";
-import { ConvexHttpClient } from "convex/browser";
+import { convexForRequest } from "@/lib/server/convexClient";
 import { api } from "@/convex/_generated/api";
 import { KEEL_MODEL } from "@/lib/ai/model";
 import { migrateProfile } from "@/lib/onboarding/questions";
@@ -25,9 +25,9 @@ export async function POST(request: Request) {
   const categoryId = parsed.data.categoryId as CategoryId;
   if (sessionId === "demo")
     return Response.json({ error: "Keel's thoughts are only written for your own answers." }, { status: 400 });
-  const url = process.env.NEXT_PUBLIC_CONVEX_URL?.trim().split(/\s+/)[0];
-  if (!url) return Response.json({ error: "Keel is temporarily unavailable." }, { status: 503 });
-  const client = new ConvexHttpClient(url);
+  const client = await convexForRequest();
+  if (!client)
+    return Response.json({ error: "Keel is temporarily unavailable." }, { status: 503 });
   try {
     const [profileDoc, [snapshot]] = await Promise.all([
       client.query(api.profiles.getBySession, { sessionId }),

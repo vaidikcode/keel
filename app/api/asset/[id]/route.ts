@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { ConvexHttpClient } from "convex/browser";
+import { convexForRequest } from "@/lib/server/convexClient";
 import { api } from "@/convex/_generated/api";
 import { migrateProfile, type Profile } from "@/lib/onboarding/questions";
 import { assetById, CATEGORY_BY_ID, categoryOf } from "@/lib/market/categories";
@@ -86,9 +86,9 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     const body = build({ id, snapshot: sampleSnapshot(category.id), details: null, profile: sampleProfile, sample: true, warnings: ["sample"] });
     return Response.json(body);
   }
-  const url = process.env.NEXT_PUBLIC_CONVEX_URL?.trim().split(/\s+/)[0];
-  if (!url) return Response.json({ error: "Temporarily unavailable." }, { status: 503 });
-  const client = new ConvexHttpClient(url);
+  const client = await convexForRequest();
+  if (!client)
+    return Response.json({ error: "Temporarily unavailable." }, { status: 503 });
   try {
     const profileDoc = sessionId
       ? await client.query(api.profiles.getBySession, { sessionId })
