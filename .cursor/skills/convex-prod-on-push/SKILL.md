@@ -119,7 +119,7 @@ In Vercel → Project → Settings → Environment Variables, **Production** onl
 
 | Name | Value | Secret? |
 | --- | --- | --- |
-| `NEXT_PUBLIC_CONVEX_URL` | `https://youthful-manatee-537.convex.cloud` | No (public client URL). **Required.** |
+| `NEXT_PUBLIC_CONVEX_URL` | `https://youthful-manatee-537.convex.cloud` | No (public client URL). **Required.** One line only — do not paste it twice or include a blank line. Then **redeploy** (this value is baked in at build). |
 
 That is enough for the live site to talk to prod Convex.
 
