@@ -1,6 +1,7 @@
 import { generateText, Output, stepCountIs } from "ai";
 import { z } from "zod";
 import { convexForRequest } from "@/lib/server/convexClient";
+import { convexErrorResponse } from "@/lib/server/convexError";
 import { api } from "@/convex/_generated/api";
 import { migrateProfile, nextStep, profileAnswers } from "@/lib/onboarding/questions";
 import { replySchema } from "@/lib/dashboard/model";
@@ -232,7 +233,7 @@ export async function POST(request: Request) {
         { status: 409 },
       );
     return Response.json({ ...reply, id });
-  } catch {
+  } catch (error) {
     if (reserved)
       await client
         .mutation(api.profiles.finishGeneration, {
@@ -242,12 +243,9 @@ export async function POST(request: Request) {
           turn: null,
         })
         .catch(() => {});
-    return Response.json(
-      {
-        error:
-          "I couldn't finish that answer. Your charts and previous conversation are still available.",
-      },
-      { status: 503 },
+    return convexErrorResponse(
+      error,
+      "I couldn't finish that answer. Your charts and previous conversation are still available.",
     );
   }
 }

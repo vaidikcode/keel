@@ -1,5 +1,6 @@
 import { after } from "next/server";
 import { convexForRequest } from "@/lib/server/convexClient";
+import { convexErrorResponse } from "@/lib/server/convexError";
 import { api } from "@/convex/_generated/api";
 import { migrateProfile, type Profile } from "@/lib/onboarding/questions";
 import { assetById, CATEGORY_BY_ID, categoryOf } from "@/lib/market/categories";
@@ -113,7 +114,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
     });
     if (!body) return Response.json({ error: "We couldn't find that option." }, { status: 404 });
     return Response.json(body);
-  } catch {
-    return Response.json({ error: "We couldn't load this option. Please try again." }, { status: 503 });
+  } catch (error) {
+    return convexErrorResponse(error, "We couldn't load this option. Please try again.");
   }
 }

@@ -1,6 +1,7 @@
 import { after } from "next/server";
 import { z } from "zod";
 import { convexForRequest } from "@/lib/server/convexClient";
+import { convexErrorResponse } from "@/lib/server/convexError";
 import { api } from "@/convex/_generated/api";
 import { migrateProfile } from "@/lib/onboarding/questions";
 import { CATEGORY_BY_ID, CATEGORY_IDS, isCategoryId } from "@/lib/market/categories";
@@ -105,10 +106,10 @@ export async function POST(request: Request) {
       warnings: snapshot.warnings,
     });
     return Response.json(response);
-  } catch {
-    return Response.json(
-      { error: "We couldn't load this category. Your answers are saved; please try again." },
-      { status: 503 },
+  } catch (error) {
+    return convexErrorResponse(
+      error,
+      "We couldn't load this category. Your answers are saved; please try again.",
     );
   }
 }

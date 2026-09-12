@@ -1,6 +1,7 @@
 import { generateText, Output } from "ai";
 import { z } from "zod";
 import { convexForRequest } from "@/lib/server/convexClient";
+import { convexErrorResponse } from "@/lib/server/convexError";
 import { api } from "@/convex/_generated/api";
 import { KEEL_MODEL } from "@/lib/ai/model";
 import { migrateProfile } from "@/lib/onboarding/questions";
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
     };
     await client.mutation(api.thoughts.put, { ...key, ...thoughts });
     return Response.json({ thoughts, cached: false });
-  } catch {
-    return Response.json({ error: "Keel couldn't finish writing. The ranking still works." }, { status: 503 });
+  } catch (error) {
+    return convexErrorResponse(error, "Keel couldn't finish writing. The ranking still works.");
   }
 }
