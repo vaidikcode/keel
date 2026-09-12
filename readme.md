@@ -1,213 +1,76 @@
 # Keel
 
-A small TypeScript Next.js app (bun) with Convex as the backend. The UI is a shared notes board: Next.js renders the page, Convex stores the notes and pushes live updates.
+An investing companion for beginners. Keel helps users set a goal, explore dated market history, compare options, and understand hypothetical price drops with an animated guide.
 
-## Stack
+## Run locally
 
-- **Frontend:** Next.js App Router + React
-- **Backend:** Convex (`convex/` directory — queries, mutations, schema)
-- **Package manager:** bun
-
-Frontend code lives in `app/` and `components/`. Backend code lives in `convex/`. There is no separate Express/Node API.
-
-## Prerequisites
-
-- [bun](https://bun.sh) 1.3+
-- A Convex account (needed to create a project and to deploy production). You can start locally without one.
+Use the existing **keel** project on team **vaidik-bhardwaj-f936a**. Follow [.agents/skills/convex-prod-on-push/SKILL.md](.agents/skills/convex-prod-on-push/SKILL.md) for the complete setup.
 
 ```bash
 bun install
-```
-
----
-
-## Local Convex setup
-
-A git clone does **not** start a backend. Convex functions only exist on a *deployment* after the CLI pushes them. Locally you run a **dev** deployment (on your machine or a personal cloud one). Production is a different deployment.
-
-### 1. Start the Convex backend (keep this running)
-
-```bash
-bun run dev:backend
-# same as: bunx convex dev
-```
-
-The first run is interactive:
-
-1. **Log in or stay local.** You can develop against a backend on your computer without an account. To use Convex Cloud (and later production), log in with GitHub.
-2. **Create or select a project.** This is the Convex *project*. It owns:
-   - one **production** deployment
-   - a **dev** deployment per person (cloud)
-   - optional **local** and **preview** deployments
-3. **Use one shared project for the repo.** Select existing project `keel` on team `vaidik-bhardwaj-f936a`. Invite teammates to that Convex team so they can do the same. They still get **their own** local `.env.local` and data. Production is shared via GitHub Actions, not via copied keys.
-4. The CLI writes `.env.local` (gitignored):
-
-```bash
-CONVEX_DEPLOYMENT=local:keel          # or dev:your-cloud-dev-name
-NEXT_PUBLIC_CONVEX_URL=http://127.0.0.1:3210
-```
-
-`CONVEX_DEPLOYMENT` is which *dev* target this checkout talks to. `NEXT_PUBLIC_CONVEX_URL` is what the Next.js client uses.
-
-Leave `convex dev` running. It watches `convex/`, typechecks, regenerates `convex/_generated/`, and pushes schema + functions to that dev deployment.
-
-### Local vs personal cloud dev
-
-| Command | What you get |
-| --- | --- |
-| `bunx convex deployment select local` then `bunx convex dev` | Backend process on your machine. Faster, no cloud quota. Stops when you stop `convex dev`. State is in `.convex/`. |
-| `bunx convex deployment select dev` then `bunx convex dev` | Your personal **cloud** dev deployment. Survives closing the laptop. Other people do **not** share this data. |
-
-Switch any time:
-
-```bash
+bunx convex login
 bunx convex deployment select local
-bunx convex deployment select dev
+bun run dev:backend
 ```
 
-Safari and Brave can block the dashboard from talking to localhost. Use another browser for the local dashboard, or allow localhost access in Brave.
-
-### 2. Start Next.js (second terminal)
+Keep the backend running. In a second terminal:
 
 ```bash
 bun run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). If `.env.local` was created after Next was already running, restart `bun run dev` so it picks up `NEXT_PUBLIC_CONVEX_URL`.
+Open the URL printed by Next.js. `/` contains onboarding; `/dashboard` is the saved user's workspace; `/dashboard?demo=1` is an explicitly illustrative example with no paid generation calls.
 
-You should be able to post a note and see it appear immediately. That write went to Convex, not to Next.js.
+Never copy another developer's `.env.local`, commit `.convex/`, or put a production deploy key on a laptop. Each local deployment has its own data.
 
-### Everyday local loop
+## Configuration
 
-```text
-terminal 1:  bun run dev:backend     # syncs convex/ → your dev deployment
-terminal 2:  bun run dev              # Next.js at localhost:3000
-```
+See [.env.example](.env.example). All provider credentials stay server-side.
 
-Change a file under `convex/` → `convex dev` pushes it to **your** dev deployment only. Production is untouched.
+- `NEXT_PUBLIC_CONVEX_URL`: local Convex URL created during setup.
+- `AI_GATEWAY_API_KEY`: enables new Keel explanations and questions. Without it, charts, scenarios and prepared local explanations remain usable.
+- `FINNHUB_API_KEY`: optional dated company news.
+- `SEC_USER_AGENT`: your valid contact string for optional SEC company facts.
+- `COINGECKO_API_KEY`: optional key for Bitcoin history.
 
----
+US security history comes from Yahoo Finance and selected crypto assets history from CoinGecko. Unavailable providers produce missing-data states, never fabricated history. The collection is intentionally limited to selected US securities and selected crypto assets. Scenario currency does not convert market data from USD.
 
-## What happens when people commit
+## Experience and implementation
 
-**Committing does not deploy Convex.** Git only stores source (`convex/*.ts`, `convex/schema.ts`). Each environment has its own database and function bundle:
+- Adaptive onboarding: five core steps; three additional readiness questions when exploring investments for the user. Draft progress stays in this browser until saved to Convex.
+- Explorer: selectable date ranges, keyboard/touch scrubbing, comparisons over shared dates, and a text table alternative.
+- Scenarios: amount and percentage controls calculated in code, labeled hypothetical.
+- Keel: animated character states, chart pointing, contextual guidance, pause/minimize and reduced-motion support.
+- Saved options and conversation are stored in Convex. Existing profiles remain readable; newly needed fields are unknown until supplied.
+- Generation budget: at most five attempts per conversation, including up to two initial explanations. Atomic reservation prevents concurrent overspend; request IDs deduplicate transport retries. New conversations have a 15-minute cooldown. Failed attempts consume budget but never become successful answers.
+- Model output is validated text plus an allowlisted interface action and source URLs. Models do not calculate portfolio values or execute code. Guidance focuses on grounded comparisons and asks for missing context before suggesting a personalized direction.
 
-```text
-laptop A  --convex dev-->  local or cloud *dev* deployment A   (A's data)
-laptop B  --convex dev-->  local or cloud *dev* deployment B   (B's data)
-main branch --CI convex deploy-->  *production* deployment     (real users)
-```
+See [design.md](design.md) and [docs/experience-revamp-plan.md](docs/experience-revamp-plan.md) for the design rules and original plan.
 
-So:
-
-- A teammate pulling your commit gets the new function *source*, not your notes.
-- Their `bunx convex dev` pushes those functions to **their** dev deployment.
-- Production keeps serving the last bundle that was explicitly deployed, until CI (or a person) runs `convex deploy`.
-
-Never point local `.env.local` at production. `convex dev` is for development; `convex deploy` is for production.
-
----
-
-## Pushing the backend to production Convex on commit
-
-This repo deploys Convex production from GitHub Actions on every push to `main` (see `.github/workflows/deploy-convex.yml`).
-
-**Already set up for this repo:**
-
-- Convex project: [keel](https://dashboard.convex.dev/t/vaidik-bhardwaj-f936a/keel) (team `vaidik-bhardwaj-f936a`)
-- Production deployment: [youthful-manatee-537](https://dashboard.convex.dev/d/youthful-manatee-537) → `https://youthful-manatee-537.convex.cloud`
-- GitHub Actions secret `CONVEX_DEPLOY_KEY` on `vaidikcode/keel` (production key only; not in git)
-
-Teammates do **not** put a prod key on their laptops. Invite them to the Convex team so they can `convex dev` against this same **project** with **their own local** `.env.local`. When they push to `main`, CI uses the repo secret and updates **this** production backend.
-
-First-time local setup and prod-on-push (any agent): `.agents/skills/convex-prod-on-push/SKILL.md`.
-
-Path from commit to prod backend:
-
-```text
-git push origin main
-        │
-        ▼
-GitHub Action on ubuntu
-        │  bun install
-        │  bunx convex deploy     ← uses CONVEX_DEPLOY_KEY
-        ▼
-Convex production deployment
-  • typechecks convex/
-  • regenerates convex/_generated
-  • bundles queries/mutations
-  • pushes schema, indexes, and functions
-```
-
-Production data is **not** copied from anyone's laptop. Only the function code and schema go up. Existing production documents stay; schema changes must be backward-compatible (additive fields, etc.) or you migrate first.
-
-Manually, from a logged-in machine (still do not use this during daily development):
+## Checks
 
 ```bash
-bunx convex deploy
+bun test
+bun run lint
+bun run typecheck
+bun run build
 ```
 
-If `CONVEX_DEPLOYMENT` in `.env.local` is a *dev* deployment, `convex deploy` targets that project's **production** deployment. If `CONVEX_DEPLOY_KEY` is set (CI), it targets the deployment that key belongs to.
+With local Convex running, `bun scripts/verify-local.ts` verifies profile/cache persistence, concurrent budgeting, duplicate requests, cooldown, saved options and stale-revision protection. It refuses non-local URLs and creates a disposable verification profile.
 
-### Frontend (Next.js) is separate
+Key files:
 
-`convex deploy` does not host the Next.js app. Typical split:
+- `components/onboarding/Onboarding.tsx`: guided questions and editable summary.
+- `components/dashboard/Spread.tsx`: dashboard workspace and companion conversation.
+- `components/dashboard/PriceChart.tsx`: date-aligned interactive charts.
+- `lib/dashboard/model.ts`: schemas and deterministic calculations.
+- `lib/dashboard/sources/`: dated observations and source evidence.
+- `app/api/spread/route.ts`: facts-only dashboard assembly and cache refresh.
+- `app/api/keel-ask/route.ts`: grounded explanations with structured actions.
+- `convex/profiles.ts`: backward-compatible profiles, bookmarks and atomic generation state.
 
-| Piece | Where it runs |
-| --- | --- |
-| Convex functions + database | Convex Cloud production |
-| Next.js UI | Vercel, Netlify, or similar |
+## Production
 
-On the frontend host, set:
+A push to `main` deploys Convex production through the existing GitHub Action using the configured repository secret. A commit alone does not deploy. Never run `convex deploy` unless explicitly asked to push production from this machine.
 
-```bash
-NEXT_PUBLIC_CONVEX_URL=https://youthful-manatee-537.convex.cloud
-```
-
-If the Next.js app still has a **dev** or localhost URL, the UI will talk to the wrong backend.
-
-### Optional: deploy Convex during the Vercel build
-
-If Next.js is on Vercel, you can push Convex in the same build instead of (or in addition to) GitHub Actions. Set Vercel's production env `CONVEX_DEPLOY_KEY` to the **production** key, and use a build command like:
-
-```bash
-bunx convex deploy --cmd 'bun run build'
-```
-
-That deploys Convex first, then builds Next.js with the production deployment URL injected. For Vercel **preview** deployments, use a **preview** deploy key in the Preview environment so each branch gets its own Convex preview instead of writing to production.
-
-Do **not** put a production deploy key in Preview/PR environments.
-
----
-
-## Project map
-
-```text
-app/                         Next.js UI (App Router)
-  ConvexClientProvider.tsx   Convex React client
-  page.tsx                   Notes board
-components/NoteBoard.tsx     Create / list / delete notes
-convex/
-  schema.ts                  Tables + indexes
-  notes.ts                   list, create, remove
-  _generated/                Created by `convex dev` — commit these
-.github/workflows/
-  deploy-convex.yml          Production backend deploy on push to main
-```
-
-## Scripts
-
-| Script | Purpose |
-| --- | --- |
-| `bun run dev` | Next.js frontend |
-| `bun run dev:backend` | Convex dev sync (`convex dev`, not `convex deploy`) |
-| `bun run lint` | ESLint including Convex rules |
-| `bun run typecheck` | `tsc --noEmit` |
-| `bunx convex deploy` | Production only |
-
-## Troubleshooting
-
-- **“Convex not connected” on localhost:** `bunx convex dev` has not written `.env.local` yet, or Next.js was started before that file existed. Start the backend, then restart `bun run dev`.
-- **Types missing under `convex/_generated`:** run `bunx convex dev` once; it generates them.
-- **CI `convex deploy` fails on auth:** `CONVEX_DEPLOY_KEY` is missing or is a preview/dev key instead of a production key.
-- **Prod UI shows empty / old data:** the Next.js host still has a *dev* `NEXT_PUBLIC_CONVEX_URL`, or Convex production was never deployed after the commit.
+Vercel hosts the frontend. Production needs `NEXT_PUBLIC_CONVEX_URL=https://youthful-manatee-537.convex.cloud` on one line, followed by a redeploy. Never put the production deploy key in Preview environments. Local verification does not deploy either service.

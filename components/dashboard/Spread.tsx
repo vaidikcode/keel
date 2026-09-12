@@ -1,207 +1,234 @@
 "use client";
-
-import { useMutation } from "convex/react";
 import Link from "next/link";
-import {
-  type KeyboardEvent,
-  type ReactNode,
-  useMemo,
-  useState,
-} from "react";
+import { useEffect, useRef, useState } from "react";
+import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import type { AssetPack, SpreadPack } from "@/lib/dashboard/pack";
-import { LogoMark } from "@/components/onboarding/graphics";
+import {
+  type Dashboard,
+  type Turn,
+  drawdown,
+  lossScenario,
+} from "@/lib/dashboard/model";
+import {
+  currencyFormat,
+  goalLabels,
+  horizonLabels,
+  nextStep,
+  type Profile,
+} from "@/lib/onboarding/questions";
+import { Icon } from "@/components/ui/Icon";
 import { KeelMascot } from "./KeelMascot";
+import { PriceChart } from "./PriceChart";
 
-type BeatKey = keyof AssetPack["beats"] | "greeting" | "prompt" | "ask";
-type Side = "center" | "feed" | "filing" | "sleep";
-type Pane = "feed" | "filing" | "sleep" | "twin" | null;
-
-function sleepMismatch(asset: AssetPack, sleepChip: string): boolean {
-  if (sleepChip === "steady") {
-    return asset.nights > 3;
-  }
-  if (sleepChip === "balanced") {
-    return asset.nights > 7;
-  }
-  return false;
-}
-
-function isLivePrice(label: string): boolean {
-  return label.trim() !== "—" && label.trim().length > 0 && label.includes("$");
-}
-
-function Pulse({ values }: { values: number[] }) {
-  const points = values.length > 0 ? values : [0.4, 0.5, 0.45, 0.55, 0.5];
-  const w = 160;
-  const h = 40;
-  const step = w / Math.max(points.length - 1, 1);
-  const d = points
-    .map((value, index) => {
-      const x = index * step;
-      const y = h - value * (h - 6) - 3;
-      return `${index === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`;
-    })
-    .join(" ");
-
-  return (
-    <svg
-      viewBox={`0 0 ${w} ${h}`}
-      className="mt-4 h-10 w-full max-w-[180px]"
-      aria-hidden
-    >
-      <path
-        d={d}
-        fill="none"
-        stroke="#000"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function PaneSurface({
-  active,
-  onActivate,
-  className,
-  label,
-  children,
-}: {
-  active: boolean;
-  onActivate: () => void;
-  className: string;
-  label: string;
-  children: ReactNode;
-}) {
-  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      onActivate();
-    }
-  }
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-pressed={active}
-      aria-label={label}
-      onClick={onActivate}
-      onKeyDown={onKeyDown}
-      className={`cursor-pointer rounded-[20px] border border-carbon p-5 text-left transition-transform active:scale-[0.99] md:p-6 ${className} ${
-        active ? "ring-2 ring-carbon ring-offset-2 ring-offset-sky-wash" : ""
-      }`}
-    >
-      {children}
-    </div>
-  );
-}
-
+type View = "overview" | "explore" | "saved";
+type Mode = "history" | "compare" | "scenario";
 export function Spread({
-  pack,
+  dashboard,
+  profile,
   sessionId,
-  sleepChip,
-  noise,
-  priorAsks,
+  turns,
+  savedAssets,
+  onRefresh,
+  refreshing,
+  generationUsed = 0,
 }: {
-  pack: SpreadPack;
+  dashboard: Dashboard;
+  profile: Profile;
   sessionId: string;
-  sleepChip: string;
-  noise: string;
-  priorAsks: Array<{ assetId: string; question: string; reply: string }>;
+  turns: Turn[];
+  savedAssets: string[];
+  onRefresh: () => void;
+  refreshing: boolean;
+  generationUsed?: number;
 }) {
-  const saveAsk = useMutation(api.profiles.saveAsk);
-  const [index, setIndex] = useState(0);
-  const [line, setLine] = useState(pack.greeting);
-  const [lineKey, setLineKey] = useState("greeting");
-  const [lineTick, setLineTick] = useState(0);
-  const [side, setSide] = useState<Side>("center");
-  const [activePane, setActivePane] = useState<Pane>(null);
-  const [openJargon, setOpenJargon] = useState<string | null>(null);
-  const [askText, setAskText] = useState("");
-  const [askBusy, setAskBusy] = useState(false);
-  const [localAsks, setLocalAsks] = useState(priorAsks);
-
-  const asset = pack.assets[index] ?? pack.assets[0];
-  const mismatch = asset ? sleepMismatch(asset, sleepChip) : false;
-  const live = asset ? isLivePrice(asset.priceLabel) : false;
-
-  const askedThisAsset = useMemo(
-    () => (asset ? localAsks.some((item) => item.assetId === asset.id) : false),
-    [asset, localAsks],
-  );
-
-  if (!asset) {
+  const [view, setView] = useState<View>("overview"),
+    [mode, setMode] = useState<Mode>("history");
+  const [selected, setSelected] = useState(dashboard.assets[0]?.id ?? "vti"),
+    [comparison, setComparison] = useState<string[]>([]),
+    [days, setDays] = useState(365);
+  const [query, setQuery] = useState(""),
+    [category, setCategory] = useState("all");
+  const [amount, setAmount] = useState(profile.amount ?? 1000),
+    [drop, setDrop] = useState(20);
+  const [paused, setPaused] = useState(false),
+    [minimized, setMinimized] = useState(false);
+  const [message, setMessage] = useState(nextStep(profile)),
+    [question, setQuestion] = useState(""),
+    [busy, setBusy] = useState(false),
+    [chatError, setChatError] = useState("");
+  const [localTurns, setLocalTurns] = useState<Turn[]>([]),
+    [sampleSaved, setSampleSaved] = useState<string[]>([]);
+  const [showSources, setShowSources] = useState(false),
+    [showConversation, setShowConversation] = useState(false);
+  const [activeContext, setActiveContext] = useState("overview"),
+    [notice, setNotice] = useState("");
+  const toggleSaved = useMutation(api.profiles.toggleSaved),
+    newConversation = useMutation(api.profiles.newConversation);
+  const interaction = useRef(0);
+  const prepared = useRef(false),
+    requestId = useRef<{
+      id: string;
+      question: string;
+      assetId: string;
+    } | null>(null);
+  const asset =
+    dashboard.assets.find((a) => a.id === selected) ?? dashboard.assets[0];
+  const saved = dashboard.sample ? sampleSaved : savedAssets;
+  const allTurns = [
+    ...turns,
+    ...localTurns.filter((t) => !turns.some((p) => p.id === t.id)),
+  ];
+  const chartAssets = [
+    asset,
+    ...comparison
+      .filter((id) => id !== asset?.id)
+      .map((id) => dashboard.assets.find((a) => a.id === id)!),
+  ]
+    .filter(Boolean)
+    .slice(0, 3);
+  const biggestDrop = asset ? drawdown(asset.history) : null;
+  const outcome = lossScenario(amount, drop);
+  function applyAction(action: string) {
+    if (action === "compare") {
+      setMode("compare");
+      setActiveContext("compare");
+      if (!comparison.length)
+        setComparison(
+          dashboard.assets
+            .filter((a) => a.id !== asset.id)
+            .slice(0, 1)
+            .map((a) => a.id),
+        );
+    }
+    if (action === "scenario") {
+      setMode("scenario");
+      setActiveContext("scenario");
+    }
+    if (action === "sources") setShowSources(true);
+    if (action === "profile")
+      setNotice(
+        "You can update your time frame and financial context in Edit your answers.",
+      );
+  }
+  useEffect(() => {
+    if (
+      dashboard.sample ||
+      !asset ||
+      prepared.current ||
+      generationUsed >= 5 ||
+      turns.some((t) => t.id.startsWith("prepare:"))
+    )
+      return;
+    prepared.current = true;
+    // One preparation sequence per mount; server IDs deduplicate across tabs.
+    async function prepare() {
+      const initialInteraction = interaction.current;
+      const run = async (mode: "prepare" | "guidance", question: string) => {
+        const response = await fetch("/api/keel-ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId,
+            assetId: asset.id,
+            requestId: crypto.randomUUID(),
+            question,
+            mode,
+          }),
+        });
+        if (!response.ok) return false;
+        const reply = await response.json();
+        if (interaction.current === initialInteraction) setMessage(reply.text);
+        return true;
+      };
+      if (await run("prepare", "What can I learn from these options?"))
+        await run("guidance", "What is a useful next step for my goal?");
+    }
+    void prepare().catch(() => {});
+  }, [dashboard.sample, asset, sessionId, generationUsed, turns]);
+  if (!asset)
     return (
-      <div className="flex flex-1 items-center justify-center px-6">
-        <p className="font-aeonik-pro text-[15px]">No assets packed. Start over.</p>
-        <Link href="/" className="ml-3 underline">
-          Home
-        </Link>
+      <div className="empty-state">
+        <h1>No options available yet.</h1>
+        <button className="button primary" onClick={onRefresh}>
+          Try again
+        </button>
       </div>
     );
+  function explain(text: string, context = "chart") {
+    interaction.current += 1;
+    setMessage(text);
+    setActiveContext(context);
+    setMinimized(false);
   }
-
-  function play(
-    next: string,
-    key: BeatKey,
-    nextSide: Side,
-    pane: Pane,
-    assetId = asset.id,
-  ) {
-    const nextTick = lineTick + 1;
-    setLineTick(nextTick);
-    setLine(next);
-    setLineKey(`${assetId}-${key}-${nextTick}`);
-    setSide(nextSide);
-    setActivePane(pane);
-  }
-
-  function onSelectAsset(nextIndex: number) {
-    const next = pack.assets[nextIndex];
-    if (!next) {
-      return;
-    }
-    setIndex(nextIndex);
-    setOpenJargon(null);
-    setAskText("");
-    play(next.assetGreeting, "greeting", "center", null, next.id);
-  }
-
-  async function submitAsk(question: string) {
-    const trimmed = question.trim();
-    if (!trimmed || askBusy) {
-      return;
-    }
-    if (askedThisAsset) {
-      play(
-        "One live question per asset. Tap a pane or a suggestion chip.",
-        "ask",
-        "center",
-        null,
+  function changeMode(next: Mode) {
+    setMode(next);
+    setActiveContext(next);
+    if (next === "compare") {
+      if (!comparison.length)
+        setComparison(
+          dashboard.assets
+            .filter((a) => a.id !== asset.id)
+            .slice(0, 1)
+            .map((a) => a.id),
+        );
+      explain(
+        "Start both options with the same amount. Then compare the ups and downs over the same dates.",
+        "compare",
       );
+    }
+    if (next === "scenario")
+      explain(
+        "Move the slider to see what a drop would mean for your amount. This is a hypothetical scenario, not a prediction.",
+        "scenario",
+      );
+  }
+  async function saveAsset(id: string) {
+    if (dashboard.sample)
+      setSampleSaved((s) =>
+        s.includes(id) ? s.filter((x) => x !== id) : [...s, id],
+      );
+    else
+      try {
+        await toggleSaved({ sessionId, assetId: id });
+      } catch {
+        setNotice("We couldn't save that option. Please try again.");
+      }
+  }
+  async function ask(text: string) {
+    if (!text.trim() || busy) return;
+    interaction.current += 1;
+    const askedAtInteraction = interaction.current;
+    setMinimized(false);
+    setChatError("");
+    if (dashboard.sample) {
+      const reply = text.toLowerCase().includes("risk")
+        ? "Explore the drop scenario to see how a change in price affects an amount. These charts use sample data, so they can't tell us the real risk of an investment."
+        : "This is an example dashboard. Try comparing two paths or changing the drop scenario. Add your goals to ask Keel questions about real data.";
+      setMessage(reply);
+      setLocalTurns((t) => [
+        ...t,
+        {
+          id: crypto.randomUUID(),
+          question: text,
+          reply,
+          action: "none",
+          sourceIds: [],
+        },
+      ]);
+      setQuestion("");
+      setShowConversation(true);
       return;
     }
-
-    const suggestionHit = pack.asks.includes(trimmed);
-    if (suggestionHit) {
-      const lower = trimmed.toLowerCase();
-      const reply = lower.includes("twin")
-        ? asset.beats.twin
-        : lower.includes("sleep") || lower.includes("jumpy")
-          ? mismatch
-            ? asset.beats.mismatch
-            : asset.beats.sleep
-          : lower.includes("filing") || lower.includes("document")
-            ? asset.beats.filing
-            : asset.beats.feed;
-      play(reply, "ask", "center", null);
-      return;
-    }
-
-    setAskBusy(true);
+    setBusy(true);
+    if (
+      requestId.current?.question !== text ||
+      requestId.current.assetId !== asset.id
+    )
+      requestId.current = {
+        id: crypto.randomUUID(),
+        question: text,
+        assetId: asset.id,
+      };
     try {
       const response = await fetch("/api/keel-ask", {
         method: "POST",
@@ -209,331 +236,831 @@ export function Spread({
         body: JSON.stringify({
           sessionId,
           assetId: asset.id,
-          question: trimmed,
+          requestId: requestId.current.id,
+          question: text,
+          mode: "ask",
+          context: `${mode}; comparisons: ${comparison.join(",")}; period: ${days} days; hypothetical amount ${amount} ${profile.currency}; hypothetical drop ${drop}%`,
         }),
       });
-      const body: unknown = await response.json();
-      const reply =
-        typeof body === "object" &&
-        body !== null &&
-        "reply" in body &&
-        typeof body.reply === "string"
-          ? body.reply
-          : "Tap Feed or Filing — those lines are packed.";
-      play(reply, "ask", "center", null);
-      setLocalAsks((prev) => [
-        ...prev,
-        { assetId: asset.id, question: trimmed, reply },
-      ]);
-      try {
-        await saveAsk({
-          sessionId,
-          assetId: asset.id,
-          question: trimmed,
-          reply,
-        });
-      } catch {
-        // API may have saved already
+      const reply = await response.json();
+      if (!response.ok) {
+        requestId.current = null;
+        throw new Error(
+          reply.error ?? "I couldn't answer that. Please try again.",
+        );
       }
-    } catch {
-      play(
-        "Could not ask live. Tap a pane — those beats are free.",
-        "ask",
-        "center",
-        null,
+      if (interaction.current === askedAtInteraction) {
+        setMessage(reply.text);
+        applyAction(reply.action);
+      }
+      setLocalTurns((t) => [
+        ...t,
+        {
+          id: reply.id,
+          question: text,
+          reply: reply.text,
+          action: reply.action,
+          sourceIds: reply.sourceIds,
+        },
+      ]);
+      setQuestion("");
+      setShowConversation(true);
+      requestId.current = null;
+    } catch (e) {
+      setChatError(
+        e instanceof TypeError
+          ? "I couldn't connect just now. Your question is still here—please try again."
+          : e instanceof Error
+            ? e.message
+            : "I couldn't answer. Please try again.",
       );
+      // Keep the same ID after an uncertain transport failure; retries cannot spend twice.
     } finally {
-      setAskBusy(false);
-      setAskText("");
+      setBusy(false);
     }
   }
-
-  const feedBody =
-    noise === "charts"
-      ? "Pulse of the last year — not a trading chart."
-      : asset.feedLine;
-
+  const filtered = dashboard.assets.filter(
+    (a) =>
+      (view !== "saved" || saved.includes(a.id)) &&
+      (category === "all" || a.kind === category) &&
+      `${a.name} ${a.ticker}`.toLowerCase().includes(query.toLowerCase()),
+  );
   return (
-    <div className="relative flex min-h-full flex-1 flex-col bg-sky-wash">
-      <header className="flex items-center justify-between gap-3 px-5 py-4 md:px-8">
-        <LogoMark />
-        <p className="font-aeonik-pro text-[12px] font-bold tracking-[0.032em] uppercase">
-          Feed vs filing
-        </p>
-        <Link
-          href="/"
-          className="font-aeonik-pro text-[12px] font-bold tracking-[0.032em] uppercase"
-        >
-          Restart
+    <div className={`dashboard-shell ${paused ? "motion-paused" : ""}`}>
+      <aside className="sidebar">
+        <Link href="/" className="wordmark">
+          <span className="brand-mark">k.</span>keel
+          <span className="brand-dot">●</span>
         </Link>
-      </header>
-
-      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-4 px-4 pb-10 md:px-6">
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          {pack.assets.map((item, dotIndex) => (
+        <span className="sidebar-caption">A LITTLE MORE CLARITY</span>
+        <nav aria-label="Main navigation">
+          {(
+            [
+              { id: "overview", label: "Overview", icon: "home" },
+              { id: "explore", label: "Explore", icon: "compass" },
+              { id: "saved", label: "Saved", icon: "bookmark" },
+            ] as const
+          ).map((n) => (
             <button
-              key={item.id}
-              type="button"
-              aria-current={dotIndex === index}
-              onClick={() => onSelectAsset(dotIndex)}
-              className={`rounded-full border border-carbon px-4 py-2 font-aeonik-pro text-[13px] font-bold tracking-[0.032em] transition-colors ${
-                dotIndex === index
-                  ? "bg-carbon text-paper-white"
-                  : "bg-paper-white text-carbon"
-              }`}
+              key={n.id}
+              className={view === n.id ? "active" : ""}
+              aria-current={view === n.id ? "page" : undefined}
+              onClick={() => setView(n.id)}
             >
-              {item.ticker}
+              <Icon name={n.icon} />
+              {n.label}
+              {n.id === "saved" && saved.length > 0 && (
+                <span className="nav-count">{saved.length}</span>
+              )}
             </button>
           ))}
+        </nav>
+        <div className="sidebar-goal">
+          <span className="label">YOUR STARTING POINT</span>
+          <Icon name="compass" size={28} />
+          <strong>{goalLabels[profile.goal]}</strong>
+          <span>{horizonLabels[profile.horizon]}</span>
+          <Link href="/?edit=1">
+            Edit your answers <Icon name="arrow" size={15} />
+          </Link>
         </div>
-
-        <div className="flex flex-col items-center gap-2 pt-1">
-          <div className="flex items-center gap-2">
-            <p className="font-aeonik-pro text-[12px] font-bold tracking-[0.032em] uppercase">
-              {asset.kind}
-            </p>
-            <span
-              className={`rounded-full border border-carbon px-2 py-0.5 font-aeonik-pro text-[11px] font-bold tracking-[0.032em] uppercase ${
-                live ? "bg-mint-pop" : "bg-soft-mist"
-              }`}
-            >
-              {live ? "Live quote" : "Seed data"}
+        <div className="sidebar-bottom">
+          <span className="tiny-avatar">Y</span>
+          <span>
+            Your space<small>One step at a time</small>
+          </span>
+          <Link href="/?edit=1" aria-label="Edit your answers">
+            <Icon name="settings" />
+          </Link>
+        </div>
+      </aside>
+      <main className="dashboard-main">
+        <header className="dashboard-header">
+          <div>
+            <span className="breadcrumb">
+              Your space <Icon name="chevron" size={12} />
             </span>
-            <span className="rounded-full border border-carbon bg-paper-white px-2 py-0.5 font-aeonik-pro text-[11px] font-bold tracking-[0.032em] uppercase">
-              {pack.source === "gateway" ? "Keel packed" : "Canned pack"}
+            <span>
+              {view === "overview"
+                ? "Overview"
+                : view === "explore"
+                  ? "Explore"
+                  : "Saved"}
             </span>
           </div>
-          <h1
-            key={`title-${asset.id}`}
-            className="keel-in text-center font-aeonik-pro text-[30px] font-bold leading-[1.1] md:text-[48px] md:leading-none"
-          >
-            {asset.title}
-          </h1>
-          <p className="font-aeonik-pro text-[15px] font-medium tracking-[-0.01em] text-carbon">
-            {asset.ticker} · {asset.priceLabel}
-          </p>
-          <p className="max-w-md text-center font-aeonik-pro text-[13px] font-medium leading-[1.39]">
-            Tap Feed, Filing, Sleep, or Twin — Keel answers in the middle. No
-            extra model calls.
-          </p>
-        </div>
-
-        <div className="grid flex-1 gap-3 md:grid-cols-[1fr_minmax(220px,280px)_1fr] md:items-stretch">
-          <PaneSurface
-            active={activePane === "feed"}
-            label="Feed pane"
-            onActivate={() => play(asset.beats.feed, "feed", "feed", "feed")}
-            className="bg-lavender text-carbon"
-          >
-            <p className="font-aeonik-pro text-[12px] font-bold tracking-[0.032em] uppercase">
-              Feed · noise
-            </p>
-            <p
-              key={`feed-${asset.id}-${lineTick}`}
-              className="keel-in mt-3 font-aeonik-pro text-[22px] font-bold leading-[1.2] md:text-[24px]"
-            >
-              {feedBody}
-            </p>
-            <Pulse values={asset.pulse} />
-            <p className="mt-4 font-aeonik-pro text-[12px] font-medium">
-              {activePane === "feed" ? "Keel is on the noise" : "Tap for Keel"}
-            </p>
-          </PaneSurface>
-
-          <div className="flex flex-col items-center justify-center gap-4 rounded-[20px] border border-carbon bg-paper-white px-4 py-5">
-            <KeelMascot line={line} side={side} lineKey={lineKey} />
-            <p className="text-center font-aeonik-pro text-[12px] font-bold tracking-[0.032em] uppercase">
-              {pack.prompt}
-            </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              {pack.promptOptions.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() =>
-                    play(
-                      option.id === "feed"
-                        ? asset.beats.feed
-                        : asset.beats.filing,
-                      option.id,
-                      option.id,
-                      option.id,
-                    )
-                  }
-                  className={`rounded-full border border-carbon px-4 py-2 font-aeonik-pro text-[13px] font-bold tracking-[0.032em] ${
-                    activePane === option.id
-                      ? "bg-carbon text-paper-white"
-                      : "bg-soft-mist text-carbon"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <PaneSurface
-            active={activePane === "filing"}
-            label="Filing pane"
-            onActivate={() =>
-              play(asset.beats.filing, "filing", "filing", "filing")
-            }
-            className="bg-electric-blue text-carbon"
-          >
-            <p className="font-aeonik-pro text-[12px] font-bold tracking-[0.032em] uppercase">
-              Filing · document
-            </p>
-            <p
-              key={`filing-${asset.id}`}
-              className="keel-in mt-3 font-aeonik-pro text-[22px] font-bold leading-[1.2] md:text-[24px]"
-            >
-              {asset.filingLine}
-            </p>
-            <ul className="mt-4 flex flex-wrap gap-2">
-              {asset.jargon.map((item) => (
-                <li key={item.term}>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setOpenJargon(item.term);
-                      play(
-                        `${item.term}: ${item.plain}`,
-                        "jargon",
-                        "filing",
-                        "filing",
-                      );
-                    }}
-                    className={`rounded-full border border-carbon px-3 py-1.5 font-aeonik-pro text-[12px] font-bold tracking-[0.032em] ${
-                      openJargon === item.term
-                        ? "bg-carbon text-paper-white"
-                        : "bg-paper-white text-carbon"
-                    }`}
-                  >
-                    {item.term}
-                  </button>
-                </li>
-              ))}
-            </ul>
-            {openJargon ? (
-              <p className="mt-3 font-aeonik-pro text-[13px] font-medium leading-[1.39]">
-                {asset.jargon.find((item) => item.term === openJargon)?.plain}
-              </p>
-            ) : (
-              <p className="mt-4 font-aeonik-pro text-[12px] font-medium">
-                Tap a word chip — or the pane for the filing beat
-              </p>
-            )}
-          </PaneSurface>
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-2">
-          <PaneSurface
-            active={activePane === "sleep"}
-            label="Sleep meter"
-            onActivate={() =>
-              play(
-                mismatch ? asset.beats.mismatch : asset.beats.sleep,
-                mismatch ? "mismatch" : "sleep",
-                "sleep",
-                "sleep",
-              )
-            }
-            className={
-              mismatch ? "bg-ember text-paper-white" : "bg-sunburst text-carbon"
-            }
-          >
-            <p className="font-aeonik-pro text-[12px] font-bold tracking-[0.032em] uppercase">
-              Sleep
-            </p>
-            <p className="mt-2 font-aeonik-pro text-[20px] font-bold leading-[1.2]">
-              {asset.sleepLine}
-            </p>
-            <div
-              className={`mt-4 h-3 overflow-hidden rounded-full border border-carbon ${
-                mismatch ? "border-paper-white bg-paper-white/30" : "bg-paper-white"
-              }`}
-            >
-              <div
-                className={`h-full ${mismatch ? "bg-paper-white" : "bg-mint-pop"}`}
-                style={{
-                  width: `${Math.min(100, Math.max(8, asset.nights * 7))}%`,
-                }}
+          <div className="header-actions">
+            <span className="data-status">
+              <span
+                className={`status-dot ${dashboard.sample ? "sample-dot" : ""}`}
               />
-            </div>
-            <p className="mt-2 font-aeonik-pro text-[12px] font-medium">
-              Your chip: {sleepChip}
-              {mismatch ? " · mismatch" : " · match"} · ~{asset.nights} nights ·
-              max drop {asset.maxDrawdownPct}%
-            </p>
-          </PaneSurface>
-
-          <PaneSurface
-            active={activePane === "twin"}
-            label="Boring twin"
-            onActivate={() => play(asset.beats.twin, "twin", "center", "twin")}
-            className="bg-voltage-violet text-paper-white"
-          >
-            <p className="font-aeonik-pro text-[12px] font-bold tracking-[0.032em] uppercase">
-              Boring twin
-            </p>
-            <p className="mt-2 font-aeonik-pro text-[20px] font-bold leading-[1.2]">
-              {asset.twinTitle}
-            </p>
-            <p className="mt-3 font-aeonik-pro text-[14px] font-medium leading-[1.39]">
-              {asset.twinLine}
-            </p>
-          </PaneSurface>
-        </div>
-
-        <div className="rounded-[20px] border border-carbon bg-paper-white p-5">
-          <p className="font-aeonik-pro text-[12px] font-bold tracking-[0.032em] uppercase">
-            Ask Keel
-          </p>
-          <p className="mt-1 font-aeonik-pro text-[13px] font-medium leading-[1.39]">
-            Suggestion chips are free. Typing uses one live call per asset.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {pack.asks.map((chip) => (
-              <button
-                key={chip}
-                type="button"
-                onClick={() => void submitAsk(chip)}
-                className="rounded-full border border-carbon bg-soft-mist px-3 py-2 font-aeonik-pro text-[12px] font-bold tracking-[0.032em]"
-              >
-                {chip}
-              </button>
-            ))}
-          </div>
-          <form
-            className="mt-4 flex flex-col gap-2 sm:flex-row"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void submitAsk(askText);
-            }}
-          >
-            <input
-              value={askText}
-              onChange={(event) => setAskText(event.target.value)}
-              maxLength={200}
-              placeholder={
-                askedThisAsset
-                  ? "Live ask used for this asset"
-                  : "Type one live question (once per asset)"
-              }
-              disabled={askedThisAsset || askBusy}
-              className="min-h-11 flex-1 rounded-full border border-carbon bg-paper-white px-4 font-aeonik-pro text-[14px] font-medium outline-none disabled:bg-soft-mist"
-            />
+              {dashboard.sample ? "Example dashboard" : "Selected US markets"}
+            </span>
             <button
-              type="submit"
-              disabled={askedThisAsset || askBusy || askText.trim().length === 0}
-              className="rounded-full border border-carbon bg-carbon px-5 py-2.5 font-aeonik-pro text-[13px] font-bold tracking-[0.032em] text-paper-white disabled:bg-soft-mist disabled:text-carbon"
+              className="icon-button"
+              aria-label={
+                paused ? "Resume mascot movement" : "Pause mascot movement"
+              }
+              onClick={() => setPaused(!paused)}
             >
-              {askBusy ? "…" : "Ask"}
+              <Icon name={paused ? "play" : "pause"} size={17} />
             </button>
-          </form>
+          </div>
+        </header>
+        {dashboard.sample && (
+          <div className="sample-banner">
+            <span>
+              You’re exploring an example. All chart values are illustrative.
+            </span>
+            <Link href="/">
+              Make it yours <Icon name="arrow" size={14} />
+            </Link>
+          </div>
+        )}
+        <div className="dashboard-content">
+          <div className="page-heading">
+            <div>
+              <span className="eyebrow">
+                {view === "overview"
+                  ? "A CLEARER PICTURE"
+                  : view === "explore"
+                    ? "GET TO KNOW YOUR OPTIONS"
+                    : "KEEP YOUR CURIOSITY CLOSE"}
+              </span>
+              <h1>
+                {view === "overview"
+                  ? "Let's find your bearings."
+                  : view === "explore"
+                    ? "A little exploring goes a long way."
+                    : "Worth another look."}
+              </h1>
+              <p>
+                {view === "overview"
+                  ? "Understand the possibilities. Find a next step that makes sense to you."
+                  : view === "explore"
+                    ? "A small collection to compare, question and understand."
+                    : "The options you've saved, all in one place."}
+              </p>
+            </div>
+            <button
+              className="button secondary refresh-button"
+              onClick={onRefresh}
+              disabled={refreshing || dashboard.sample}
+            >
+              <Icon name="chart" size={16} />
+              {refreshing ? "Refreshing…" : "Refresh data"}
+            </button>
+          </div>
+          {notice && (
+            <div role="status" className="notice">
+              <span>{notice}</span>
+              <button
+                className="icon-button"
+                aria-label="Dismiss notice"
+                onClick={() => setNotice("")}
+              >
+                <Icon name="close" size={16} />
+              </button>
+            </div>
+          )}
+          <div className="workspace">
+            <div className="main-column">
+              {view !== "overview" && (
+                <section className="explore-section">
+                  <div className="explore-search">
+                    <Icon name="search" size={18} />
+                    <input
+                      aria-label="Search supported investments"
+                      placeholder="Search a name or ticker"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                    />
+                  </div>
+                  <div className="segment category-tabs">
+                    {["all", "funds", "stocks", "crypto"].map((c) => (
+                      <button
+                        key={c}
+                        className={category === c ? "active" : ""}
+                        aria-pressed={category === c}
+                        onClick={() => setCategory(c)}
+                      >
+                        {c === "all"
+                          ? "All options"
+                          : c[0].toUpperCase() + c.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="asset-grid">
+                    {filtered.map((a) => (
+                      <article
+                        className={
+                          a.id === asset.id
+                            ? "selected asset-card"
+                            : "asset-card"
+                        }
+                        key={a.id}
+                      >
+                        <button
+                          className="asset-card-main"
+                          onClick={() => {
+                            setSelected(a.id);
+                            setComparison([]);
+                            setMode("history");
+                            explain(a.description);
+                          }}
+                        >
+                          <span className={`asset-symbol symbol-${a.kind}`}>
+                            {a.ticker.slice(0, 1)}
+                          </span>
+                          <strong>{a.name}</strong>
+                          <small>
+                            {a.ticker} ·{" "}
+                            {a.kind === "funds"
+                              ? "Fund"
+                              : a.kind === "stocks"
+                                ? "Stock"
+                                : "Crypto"}
+                          </small>
+                        </button>
+                        <button
+                          className={`icon-button ${saved.includes(a.id) ? "is-saved" : ""}`}
+                          aria-label={`${saved.includes(a.id) ? "Unsave" : "Save"} ${a.name}`}
+                          onClick={() => void saveAsset(a.id)}
+                        >
+                          <Icon name="bookmark" size={17} />
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                  {!filtered.length && (
+                    <div className="empty-state">
+                      <Icon name="bookmark" size={28} />
+                      <h3>
+                        {view === "saved"
+                          ? "Your shortlist starts here."
+                          : "No matching options."}
+                      </h3>
+                      <p>
+                        {view === "saved"
+                          ? "Save an investment while exploring to come back to it later."
+                          : "Try another name in our supported collection."}
+                      </p>
+                      <button
+                        className="text-button"
+                        onClick={() => {
+                          setView("explore");
+                          setQuery("");
+                          setCategory("all");
+                        }}
+                      >
+                        Explore all options <Icon name="arrow" size={16} />
+                      </button>
+                    </div>
+                  )}
+                </section>
+              )}
+              <section className="chart-card" aria-label="Investment explorer">
+                <div className="chart-card-top">
+                  <div className="card-title">
+                    <span className="section-number">01</span>
+                    <h2>Your investment explorer</h2>
+                  </div>
+                  <span className="label">
+                    {dashboard.sample ? "SAMPLE DATA" : "PRICES IN USD"}
+                  </span>
+                </div>
+                <div className="asset-selector-row">
+                  <div className="asset-title">
+                    <span className={`asset-symbol symbol-${asset.kind}`}>
+                      {asset.ticker[0]}
+                    </span>
+                    <div>
+                      <label className="sr-only" htmlFor="selected-asset">
+                        Selected investment
+                      </label>
+                      <select
+                        id="selected-asset"
+                        value={asset.id}
+                        onChange={(e) => {
+                          setSelected(e.target.value);
+                          setComparison([]);
+                          const next = dashboard.assets.find(
+                            (a) => a.id === e.target.value,
+                          );
+                          if (next) explain(next.description);
+                        }}
+                      >
+                        {dashboard.assets.map((a) => (
+                          <option value={a.id} key={a.id}>
+                            {a.name}
+                          </option>
+                        ))}
+                      </select>
+                      <span>
+                        {asset.ticker}{" "}
+                        <span className="muted">
+                          /{" "}
+                          {asset.kind === "funds"
+                            ? "Exchange-traded fund"
+                            : asset.kind === "stocks"
+                              ? "Company stock"
+                              : "Digital asset"}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    className={`icon-button save-button ${saved.includes(asset.id) ? "is-saved" : ""}`}
+                    aria-label={`${saved.includes(asset.id) ? "Unsave" : "Save"} ${asset.name}`}
+                    onClick={() => void saveAsset(asset.id)}
+                  >
+                    <Icon name="bookmark" />
+                  </button>
+                </div>
+                <div className="chart-toolbar">
+                  <div className="segment" aria-label="Chart mode">
+                    {(
+                      [
+                        { id: "history", title: "Price history" },
+                        { id: "compare", title: "Compare" },
+                        { id: "scenario", title: "What if?" },
+                      ] as const
+                    ).map((m) => (
+                      <button
+                        key={m.id}
+                        className={mode === m.id ? "active" : ""}
+                        aria-pressed={mode === m.id}
+                        onClick={() => changeMode(m.id)}
+                      >
+                        {m.title}
+                      </button>
+                    ))}
+                  </div>
+                  {mode !== "scenario" && (
+                    <div className="periods" aria-label="Chart period">
+                      {[
+                        [30, "1M"],
+                        [90, "3M"],
+                        [180, "6M"],
+                        [365, "1Y"],
+                      ].map(([d, label]) => (
+                        <button
+                          key={d}
+                          className={days === d ? "active" : ""}
+                          aria-pressed={days === d}
+                          onClick={() => setDays(Number(d))}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {mode === "compare" && (
+                  <div className="comparison-options">
+                    <span className="fine-print">Compare with</span>
+                    {dashboard.assets
+                      .filter((a) => a.id !== asset.id)
+                      .map((a) => (
+                        <button
+                          aria-pressed={comparison.includes(a.id)}
+                          className={
+                            comparison.includes(a.id) ? "selected" : ""
+                          }
+                          key={a.id}
+                          disabled={
+                            comparison.length >= 2 && !comparison.includes(a.id)
+                          }
+                          onClick={() =>
+                            setComparison((c) =>
+                              c.includes(a.id)
+                                ? c.filter((id) => id !== a.id)
+                                : [...c, a.id].slice(0, 2),
+                            )
+                          }
+                        >
+                          {comparison.includes(a.id) ? (
+                            <Icon name="check" size={12} />
+                          ) : (
+                            <Icon name="plus" size={12} />
+                          )}{" "}
+                          {a.ticker}
+                        </button>
+                      ))}
+                  </div>
+                )}
+                {mode === "scenario" ? (
+                  <div className="scenario">
+                    <span className="eyebrow">
+                      A POSSIBILITY, NOT A PREDICTION
+                    </span>
+                    <h3>
+                      If prices fell <em>{drop}%</em>…
+                    </h3>
+                    <div className="scenario-visual">
+                      <div className="scenario-before">
+                        <span>Starting amount</span>
+                        <strong>
+                          {currencyFormat(amount, profile.currency)}
+                        </strong>
+                        <div className="scenario-bar" />
+                      </div>
+                      <Icon name="arrow" size={28} />
+                      <div className="scenario-after">
+                        <span>After the drop</span>
+                        <strong>
+                          {currencyFormat(outcome.remaining, profile.currency)}
+                        </strong>
+                        <div
+                          className="scenario-bar"
+                          style={{ width: `${100 - drop}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="scenario-inputs">
+                      <div>
+                        <label htmlFor="scenario-amount">
+                          Your hypothetical amount · {profile.currency}
+                        </label>
+                        <input
+                          id="scenario-amount"
+                          type="number"
+                          min="0"
+                          max="1000000000"
+                          value={amount}
+                          onChange={(e) =>
+                            setAmount(
+                              Math.max(
+                                0,
+                                Math.min(1e9, Number(e.target.value)),
+                              ),
+                            )
+                          }
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="scenario-drop">
+                          Price drop <strong>{drop}%</strong>
+                        </label>
+                        <input
+                          id="scenario-drop"
+                          type="range"
+                          min="0"
+                          max="80"
+                          step="5"
+                          value={drop}
+                          onChange={(e) => setDrop(Number(e.target.value))}
+                        />
+                        <span className="range-labels">
+                          <span>0%</span>
+                          <span>80%</span>
+                        </span>
+                      </div>
+                    </div>
+                    <p className="scenario-result">
+                      That’s a decrease of{" "}
+                      <strong>
+                        {currencyFormat(outcome.loss, profile.currency)}
+                      </strong>
+                      . How would that feel?
+                    </p>
+                    <button
+                      className="text-button"
+                      onClick={() =>
+                        explain(
+                          `A ${drop}% fall would reduce ${currencyFormat(amount, profile.currency)} by ${currencyFormat(outcome.loss, profile.currency)}. This isn't a forecast. Think about whether you could leave that money invested if you needed it soon.`,
+                          "scenario",
+                        )
+                      }
+                    >
+                      <Icon name="spark" size={16} /> Talk me through this
+                    </button>
+                  </div>
+                ) : (
+                  <PriceChart
+                    key={`${asset.id}-${comparison.join("-")}-${days}-${mode}`}
+                    assets={mode === "compare" ? chartAssets : [asset]}
+                    days={days}
+                    sample={dashboard.sample}
+                    paused={paused}
+                    onExplain={explain}
+                  />
+                )}
+              </section>
+              <div className="below-chart">
+                <section className="understand-card">
+                  <div className="card-title">
+                    <span className="section-number">02</span>
+                    <h2>Know what you’re looking at</h2>
+                  </div>
+                  <p>{asset.description}</p>
+                  <div className="tradeoff">
+                    <Icon name="shield" size={19} />
+                    <span>{asset.tradeoff}</span>
+                  </div>
+                  <button
+                    className="text-button"
+                    onClick={() => {
+                      setShowSources(!showSources);
+                      setActiveContext("sources");
+                    }}
+                  >
+                    Check the sources <Icon name="link" size={14} />
+                  </button>
+                </section>
+                <section className="risk-card">
+                  <span className="label">
+                    {dashboard.sample
+                      ? "IN THIS EXAMPLE"
+                      : "LARGEST DROP IN AVAILABLE HISTORY"}
+                  </span>
+                  <strong>
+                    {biggestDrop === null ? "—" : `−${biggestDrop.toFixed(1)}%`}
+                  </strong>
+                  <p>
+                    {biggestDrop === null
+                      ? "Not enough price history to calculate a drop."
+                      : "From a high point to a later low. It could fall more in the future."}
+                  </p>
+                  <button
+                    className="text-button"
+                    onClick={() => changeMode("scenario")}
+                  >
+                    See what a drop could mean <Icon name="arrow" size={15} />
+                  </button>
+                </section>
+              </div>
+              {!dashboard.sample &&
+                asset.evidence.some((e) => e.label !== "Price history") && (
+                  <section className="sources-panel recent-facts">
+                    <div className="card-title">
+                      <span className="section-number">03</span>
+                      <h2>News and facts</h2>
+                    </div>
+                    {asset.evidence
+                      .filter((e) => e.label !== "Price history")
+                      .slice(0, 4)
+                      .map((e) => (
+                        <a
+                          href={e.url}
+                          key={e.url + e.text}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <span>
+                            <small>
+                              {e.label} · {e.asOf}
+                            </small>
+                            {e.text}
+                          </span>
+                          <Icon name="link" size={15} />
+                        </a>
+                      ))}
+                  </section>
+                )}
+              {showSources && (
+                <section className="sources-panel">
+                  <div className="card-title">
+                    <h2>Where this comes from</h2>
+                    <button
+                      className="icon-button"
+                      aria-label="Close sources"
+                      onClick={() => setShowSources(false)}
+                    >
+                      <Icon name="close" size={17} />
+                    </button>
+                  </div>
+                  <p className="fine-print">
+                    {dashboard.sample
+                      ? "Chart values in this example are made up. The links below are information about the real investments."
+                      : `Retrieved ${new Date(asset.retrievedAt).toLocaleString()}. Quotes may be delayed; they are not streaming prices.`}
+                  </p>
+                  <a href={asset.url} target="_blank" rel="noreferrer">
+                    {asset.name} · Official information{" "}
+                    <Icon name="link" size={15} />
+                  </a>
+                  {!dashboard.sample &&
+                    asset.evidence.map((e) => (
+                      <a
+                        href={e.url}
+                        key={e.url + e.text}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <span>
+                          {e.label}
+                          <small>
+                            {e.text} As of {e.asOf}.
+                          </small>
+                        </span>
+                        <Icon name="link" size={15} />
+                      </a>
+                    ))}
+                  {!dashboard.sample && !asset.evidence.length && (
+                    <p>
+                      No market observations were returned. Try Refresh data.
+                    </p>
+                  )}
+                </section>
+              )}
+              <div className="coverage-note">
+                <Icon name="globe" size={16} />
+                <p>
+                  Exploring selected US investments and selected crypto assets.
+                  Availability depends on where you live.{" "}
+                  {profile.currency !== "USD"
+                    ? `Scenarios use ${profile.currency}; market prices remain in USD without currency conversion.`
+                    : "Prices are shown in USD."}
+                </p>
+              </div>
+            </div>
+            <aside
+              className={`companion-column context-${activeContext}`}
+              aria-label="Ask Keel"
+            >
+              <section
+                className={`companion-card ${minimized ? "minimized" : ""}`}
+              >
+                <div className="companion-top">
+                  <span>
+                    <span className="status-dot" /> YOUR COMPANION
+                  </span>
+                  <button
+                    className="icon-button"
+                    aria-label={minimized ? "Open Keel" : "Minimize Keel"}
+                    onClick={() => setMinimized(!minimized)}
+                  >
+                    <Icon name={minimized ? "plus" : "close"} size={16} />
+                  </button>
+                </div>
+                <div className="companion-stage">
+                  <span className="companion-halo" />
+                  <KeelMascot
+                    mood={
+                      busy
+                        ? "thinking"
+                        : activeContext === "scenario"
+                          ? "question"
+                          : activeContext === "overview"
+                            ? "wave"
+                            : "point"
+                    }
+                    size={minimized ? 70 : 150}
+                    paused={paused}
+                  />
+                  {!minimized && <span className="companion-star">✳</span>}
+                </div>
+                {!minimized && (
+                  <>
+                    <div className="companion-intro">
+                      <h2>A little help from Keel.</h2>
+                      <span>Big questions welcome.</span>
+                    </div>
+                    <div className="speech" role="status">
+                      {busy ? "Let me look at that with you…" : message}
+                    </div>
+                    <div className="quick-asks">
+                      <button
+                        onClick={() => {
+                          changeMode("compare");
+                          setView("overview");
+                        }}
+                      >
+                        Help me compare <Icon name="arrow" size={14} />
+                      </button>
+                      <button onClick={() => changeMode("scenario")}>
+                        Show me the risk <Icon name="arrow" size={14} />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setMessage(nextStep(profile));
+                          if (profile.horizon === "unknown")
+                            setNotice(
+                              "Set your time frame in Edit your answers to make comparisons more useful.",
+                            );
+                        }}
+                      >
+                        What’s my next step? <Icon name="arrow" size={14} />
+                      </button>
+                    </div>
+                    <form
+                      className="ask-form"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void ask(question);
+                      }}
+                    >
+                      <label className="sr-only" htmlFor="ask-keel">
+                        Ask Keel a question
+                      </label>
+                      <textarea
+                        id="ask-keel"
+                        rows={2}
+                        maxLength={500}
+                        placeholder="Ask anything about these options…"
+                        value={question}
+                        onChange={(e) => setQuestion(e.target.value)}
+                        disabled={busy}
+                      />
+                      <div>
+                        <span>Let’s make it make sense.</span>
+                        <button
+                          className="send-button"
+                          aria-label="Send question"
+                          disabled={busy || !question.trim()}
+                        >
+                          <Icon name="arrow" size={18} />
+                        </button>
+                      </div>
+                    </form>
+                    {chatError && (
+                      <p className="error-message" role="alert">
+                        {chatError}
+                      </p>
+                    )}
+                    {generationUsed >= 5 && (
+                      <button
+                        className="text-button new-conversation"
+                        onClick={async () => {
+                          const ok = await newConversation({ sessionId });
+                          if (ok) {
+                            setLocalTurns([]);
+                            setMessage(nextStep(profile));
+                            setChatError("");
+                          } else
+                            setChatError(
+                              "You can start a new conversation 15 minutes after this one began. Your charts remain available.",
+                            );
+                        }}
+                      >
+                        Start a new conversation <Icon name="plus" size={14} />
+                      </button>
+                    )}
+                    <button
+                      className="conversation-toggle text-button"
+                      aria-expanded={showConversation}
+                      onClick={() => setShowConversation(!showConversation)}
+                    >
+                      {showConversation ? "Hide" : "View"} conversation{" "}
+                      <span>
+                        {
+                          allTurns.filter(
+                            (t) =>
+                              !t.id.startsWith("prepare:") &&
+                              !t.id.startsWith("guidance:"),
+                          ).length
+                        }
+                      </span>
+                    </button>
+                    {showConversation && (
+                      <div
+                        className="conversation-history"
+                        aria-label="Conversation history"
+                      >
+                        {!allTurns.length && (
+                          <p className="fine-print">
+                            Your questions and Keel’s answers will stay here.
+                          </p>
+                        )}
+                        {allTurns.map((t) => (
+                          <div key={t.id} className="conversation-turn">
+                            <strong>{t.question}</strong>
+                            <p>{t.reply}</p>
+                            {t.sourceIds
+                              .filter((id) => /^https:\/\//.test(id))
+                              .map((id) => (
+                                <a
+                                  key={id}
+                                  href={id}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  {new URL(id).hostname.replace("www.", "")} ↗
+                                </a>
+                              ))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </section>
+              <div className="next-step-note">
+                <span className="label">ONE THING TO REMEMBER</span>
+                <p>
+                  You don’t have to decide today.
+                  <br />
+                  Understanding is a step forward.
+                </p>
+                <span className="note-doodle">↝</span>
+              </div>
+            </aside>
+          </div>
+          <footer className="dashboard-footer">
+            <span>Small steps. Clearer choices.</span>
+            <span>KEEL · YOUR MONEY, UNDERSTOOD</span>
+          </footer>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

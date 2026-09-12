@@ -1,3 +1,4 @@
+import { experienceFields } from "./experienceValidators";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
@@ -65,6 +66,7 @@ export default defineSchema({
   }).index("by_createdAt", ["createdAt"]),
 
   profiles: defineTable({
+    ...experienceFields,
     sessionId: v.string(),
     answers: answersValidator,
     spread: v.optional(spreadPackValidator),

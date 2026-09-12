@@ -1,3 +1,4 @@
+import { experienceFields } from "./experienceValidators";
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
@@ -68,6 +69,7 @@ const askValidator = v.object({
 });
 
 const profileValidator = v.object({
+  ...experienceFields,
   _id: v.id("profiles"),
   _creationTime: v.number(),
   sessionId: v.string(),
@@ -134,7 +136,11 @@ function softClip(value: string, max: number, fallback: string): string {
   return trimmed;
 }
 
-function clipList(values: string[], maxItems: number, maxLen: number): string[] {
+function clipList(
+  values: string[],
+  maxItems: number,
+  maxLen: number,
+): string[] {
   return values
     .slice(0, maxItems)
     .map((value) => softClip(value, maxLen, "—"))
@@ -150,7 +156,8 @@ function clipSpread(spread: SpreadInput) {
       id: option.id,
       label: softClip(option.label, 80, option.id),
     })),
-    asks: asks.length > 0 ? asks : ["What is this?", "How jumpy?", "Show the twin"],
+    asks:
+      asks.length > 0 ? asks : ["What is this?", "How jumpy?", "Show the twin"],
     source: spread.source,
     assets: spread.assets.slice(0, 3).map((asset) => ({
       id: softClip(asset.id, 80, "asset"),
@@ -158,9 +165,17 @@ function clipSpread(spread: SpreadInput) {
       ticker: softClip(asset.ticker, 40, "—"),
       kind: softClip(asset.kind, 40, "stocks"),
       feedLine: softClip(asset.feedLine, MAX_TEXT, "Quiet on the feed."),
-      filingLine: softClip(asset.filingLine, MAX_TEXT, "See the document side."),
+      filingLine: softClip(
+        asset.filingLine,
+        MAX_TEXT,
+        "See the document side.",
+      ),
       sleepLine: softClip(asset.sleepLine, MAX_TEXT, "Check the nights bar."),
-      twinLine: softClip(asset.twinLine, MAX_TEXT, "Compare to the boring twin."),
+      twinLine: softClip(
+        asset.twinLine,
+        MAX_TEXT,
+        "Compare to the boring twin.",
+      ),
       twinId: softClip(asset.twinId, 80, "voo"),
       twinTitle: softClip(asset.twinTitle, 80, "Twin"),
       priceLabel: softClip(asset.priceLabel, 80, "—"),
@@ -178,7 +193,11 @@ function clipSpread(spread: SpreadInput) {
         filing: softClip(asset.beats.filing, MAX_TEXT, "This is the document."),
         sleep: softClip(asset.beats.sleep, MAX_TEXT, "Match your sleep chip."),
         twin: softClip(asset.beats.twin, MAX_TEXT, "Try the boring twin."),
-        jargon: softClip(asset.beats.jargon, MAX_TEXT, "Tap a word for plain English."),
+        jargon: softClip(
+          asset.beats.jargon,
+          MAX_TEXT,
+          "Tap a word for plain English.",
+        ),
         mismatch: softClip(
           asset.beats.mismatch,
           MAX_TEXT,
@@ -304,5 +323,206 @@ export const saveAsk = mutation({
     ].slice(0, 6);
     await ctx.db.patch("profiles", existing._id, { asks: next });
     return existing._id;
+  },
+});
+
+// V2 widens the existing profile; older records remain readable during rollout.
+import {
+  dashboardValidator,
+  profileV2,
+  turnValidator,
+} from "./experienceValidators";
+import { profileSchema } from "../lib/onboarding/questions";
+
+export const saveExperience = mutation({
+  args: { sessionId: v.string(), profile: profileV2 },
+  returns: v.id("profiles"),
+  handler: async (ctx, args) => {
+    const sessionId = clip(args.sessionId, MAX_SESSION);
+    const profile = profileSchema.parse(args.profile);
+    const existing = await ctx.db
+      .query("profiles")
+      .withIndex("by_sessionId", (q) => q.eq("sessionId", sessionId))
+      .first();
+    const answers = {
+      watch: profile.watch === "all" ? "funds" : profile.watch,
+      noise: "headlines",
+      sleep:
+        profile.risk === "careful"
+          ? "steady"
+          : profile.risk === "comfortable"
+            ? "spicy"
+            : "balanced",
+      fog: ["jargon"],
+      intent: "learn",
+    };
+    if (existing) {
+      // Keep the budget on edits; profile changes cannot mint free generations.
+      await ctx.db.patch("profiles", existing._id, {
+        profileV2: profile,
+        answers,
+        revision: (existing.revision ?? 0) + 1,
+        dashboard: undefined,
+        spread: undefined,
+        spreadAt: undefined,
+        conversation: [],
+      });
+      return existing._id;
+    }
+    return await ctx.db.insert("profiles", {
+      sessionId,
+      profileV2: profile,
+      answers,
+      revision: 1,
+      createdAt: Date.now(),
+    });
+  },
+});
+export const saveDashboard = mutation({
+  args: {
+    sessionId: v.string(),
+    revision: v.number(),
+    dashboard: dashboardValidator,
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const p = await ctx.db
+      .query("profiles")
+      .withIndex("by_sessionId", (q) => q.eq("sessionId", args.sessionId))
+      .first();
+    if (!p || (p.revision ?? 0) !== args.revision) return false;
+    if (
+      args.dashboard.assets.length > 12 ||
+      args.dashboard.assets.some((a) => a.history.length > 400)
+    )
+      throw new Error("Too much chart data");
+    await ctx.db.patch("profiles", p._id, { dashboard: args.dashboard });
+    return true;
+  },
+});
+export const reserveGeneration = mutation({
+  args: { sessionId: v.string(), requestId: v.string(), revision: v.number() },
+  returns: v.object({
+    status: v.union(
+      v.literal("reserved"),
+      v.literal("duplicate"),
+      v.literal("limit"),
+      v.literal("changed"),
+    ),
+    remaining: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    const p = await ctx.db
+      .query("profiles")
+      .withIndex("by_sessionId", (q) => q.eq("sessionId", args.sessionId))
+      .first();
+    if (!p || (p.revision ?? 0) !== args.revision)
+      return { status: "changed" as const, remaining: 0 };
+    const generation = p.generation ?? { startedAt: Date.now(), requests: [] };
+    const remaining = Math.max(0, 5 - generation.requests.length);
+    if (generation.requests.some((r) => r.id === args.requestId))
+      return { status: "duplicate" as const, remaining };
+    if (!remaining) return { status: "limit" as const, remaining: 0 };
+    await ctx.db.patch("profiles", p._id, {
+      generation: {
+        ...generation,
+        requests: [
+          ...generation.requests,
+          { id: clip(args.requestId, 160), status: "pending" as const },
+        ],
+      },
+    });
+    return { status: "reserved" as const, remaining: remaining - 1 };
+  },
+});
+export const finishGeneration = mutation({
+  args: {
+    sessionId: v.string(),
+    requestId: v.string(),
+    revision: v.number(),
+    turn: v.union(turnValidator, v.null()),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const p = await ctx.db
+      .query("profiles")
+      .withIndex("by_sessionId", (q) => q.eq("sessionId", args.sessionId))
+      .first();
+    if (!p?.generation || (p.revision ?? 0) !== args.revision) return false;
+    const request = p.generation.requests.find((r) => r.id === args.requestId);
+    if (!request || request.status !== "pending") return false;
+    const requests = p.generation.requests.map((r) =>
+      r.id === args.requestId
+        ? { ...r, status: args.turn ? ("done" as const) : ("failed" as const) }
+        : r,
+    );
+    const conversation = args.turn
+      ? [
+          ...(p.conversation ?? []),
+          {
+            ...args.turn,
+            question: args.turn.question.slice(0, 500),
+            reply: args.turn.reply.slice(0, 700),
+          },
+        ].slice(-20)
+      : (p.conversation ?? []);
+    await ctx.db.patch("profiles", p._id, {
+      generation: { ...p.generation, requests },
+      conversation,
+    });
+    return true;
+  },
+});
+export const newConversation = mutation({
+  args: { sessionId: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const p = await ctx.db
+      .query("profiles")
+      .withIndex("by_sessionId", (q) => q.eq("sessionId", args.sessionId))
+      .first();
+    if (!p) return false;
+    // Explicit reset only, with a fixed cooldown across tabs and reloads.
+    if (p.generation && Date.now() - p.generation.startedAt < 15 * 60 * 1000)
+      return false;
+    await ctx.db.patch("profiles", p._id, {
+      generation: { startedAt: Date.now(), requests: [] },
+      conversation: [],
+    });
+    return true;
+  },
+});
+export const toggleSaved = mutation({
+  args: { sessionId: v.string(), assetId: v.string() },
+  returns: v.array(v.string()),
+  handler: async (ctx, args) => {
+    const p = await ctx.db
+      .query("profiles")
+      .withIndex("by_sessionId", (q) => q.eq("sessionId", args.sessionId))
+      .first();
+    if (
+      !p ||
+      ![
+        "vti",
+        "voo",
+        "bnd",
+        "aapl",
+        "nvda",
+        "btc",
+        "jnj",
+        "tsla",
+        "sgov",
+        "eth",
+        "doge",
+        "sol",
+      ].includes(args.assetId)
+    )
+      return [];
+    const saved = p.savedAssets ?? [];
+    const next = saved.includes(args.assetId)
+      ? saved.filter((id) => id !== args.assetId)
+      : [...saved, args.assetId].slice(0, 12);
+    await ctx.db.patch("profiles", p._id, { savedAssets: next });
+    return next;
   },
 });

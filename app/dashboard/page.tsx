@@ -1,155 +1,169 @@
 "use client";
-
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/convex/_generated/api";
 import { Spread } from "@/components/dashboard/Spread";
-import { SESSION_KEY } from "@/components/onboarding/Onboarding";
-import type { SpreadPack } from "@/lib/dashboard/pack";
-import { spreadPackSchema } from "@/lib/dashboard/pack";
-
-function readSessionIdClient(): string | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  const existing = window.sessionStorage.getItem(SESSION_KEY);
-  if (existing) {
-    return existing;
-  }
-  const next = crypto.randomUUID();
-  window.sessionStorage.setItem(SESSION_KEY, next);
-  return next;
-}
-
+import { KeelMascot } from "@/components/dashboard/KeelMascot";
+import { readSessionId } from "@/lib/session";
+import { defaultProfile, migrateProfile } from "@/lib/onboarding/questions";
+import { sampleDashboard } from "@/lib/dashboard/catalog";
+import { dashboardSchema, type Dashboard } from "@/lib/dashboard/model";
 export default function DashboardPage() {
-  const [sessionId] = useState<string | null>(() => readSessionIdClient());
-  const [bootPack, setBootPack] = useState<SpreadPack | null>(null);
-  const [fetchError, setFetchError] = useState(false);
-  const fetchStarted = useRef(false);
-
-  const profile = useQuery(
-    api.profiles.getBySession,
-    sessionId ? { sessionId } : "skip",
-  );
-
+  const [sessionId, setSessionId] = useState<string | null>(null),
+    [demo, setDemo] = useState(false);
   useEffect(() => {
-    if (!sessionId || profile === undefined || profile === null) {
-      return;
-    }
-    if (profile.spread || bootPack || fetchStarted.current) {
-      return;
-    }
-    fetchStarted.current = true;
+    // Read browser storage after hydration, preserving older session IDs.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- browser identity is read once after SSR hydration.
+    setSessionId(readSessionId());
+    setDemo(new URLSearchParams(location.search).get("demo") === "1");
+  }, []);
+  return demo ? (
+    <Spread
+      dashboard={sampleDashboard()}
+      profile={{ ...defaultProfile, goal: "wealth", horizon: "future" }}
+      sessionId="demo"
+      turns={[]}
+      savedAssets={[]}
+      onRefresh={() => {}}
+      refreshing={false}
+    />
+  ) : sessionId ? (
+    <LiveDashboard sessionId={sessionId} />
+  ) : (
+    <Loading />
+  );
+}
+function Loading() {
+  return (
+    <main className="loading-page">
+      <KeelMascot mood="thinking" size={135} />
+      <h1>Finding a little clarity…</h1>
+      <p>Your dashboard is on its way.</p>
+    </main>
+  );
+}
+function LiveDashboard({ sessionId }: { sessionId: string }) {
+  const profile = useQuery(api.profiles.getBySession, { sessionId });
+  const [boot, setBoot] = useState<{
+      data: Dashboard;
+      revision: number;
+    } | null>(null),
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false),
+    [refresh, setRefresh] = useState(0);
+  const fetched = useRef("");
+  const saveProfile = useMutation(api.profiles.saveExperience);
+  const revision = profile?.revision ?? 0;
+  useEffect(() => {
+    if (!profile) return;
+    const key = `${sessionId}:${revision}:${refresh}`;
+    if (fetched.current === key) return;
+    fetched.current = key;
     let cancelled = false;
-    void (async () => {
+    async function fetchDashboard() {
+      setBusy(true);
+      setError("");
       try {
         const response = await fetch("/api/spread", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId }),
+          body: JSON.stringify({ sessionId, force: refresh > 0 }),
         });
-        if (!response.ok) {
-          if (!cancelled) {
-            setFetchError(true);
-          }
-          return;
-        }
-        const body: unknown = await response.json();
-        const raw =
-          typeof body === "object" && body !== null && "pack" in body
-            ? body.pack
-            : null;
-        const parsed = spreadPackSchema.safeParse(raw);
-        if (!cancelled) {
-          if (parsed.success) {
-            setBootPack(parsed.data);
-          } else {
-            setFetchError(true);
-          }
-        }
-      } catch {
-        if (!cancelled) {
-          setFetchError(true);
-        }
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error);
+        const dashboard = dashboardSchema.parse(data.dashboard);
+        if (!cancelled) setBoot({ data: dashboard, revision });
+      } catch (e) {
+        if (!cancelled)
+          setError(
+            e instanceof Error
+              ? e.message
+              : "We couldn't load your dashboard. Please try again.",
+          );
+      } finally {
+        if (!cancelled) setBusy(false);
       }
-    })();
-
+    }
+    void fetchDashboard();
     return () => {
       cancelled = true;
+      fetched.current = "";
     };
-  }, [bootPack, profile, sessionId]);
-
-  if (!sessionId || profile === undefined) {
+    // Fetch on profile revision, never on generation/conversation updates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, revision, refresh, Boolean(profile)]);
+  if (profile === undefined) return <Loading />;
+  if (!profile)
     return (
-      <div className="flex min-h-full flex-1 flex-col items-center justify-center bg-paper-white px-6">
-        <span className="relative mb-6 inline-flex size-11 items-center justify-center rounded-[16px] border border-carbon bg-sunburst">
-          <span className="font-aeonik-pro text-[13px] font-bold">K</span>
-        </span>
-        <p className="keel-in font-aeonik-pro text-[24px] font-bold">
-          Opening the spread…
-        </p>
-      </div>
-    );
-  }
-
-  if (profile === null) {
-    return (
-      <div className="flex min-h-full flex-1 flex-col items-center justify-center bg-sky-wash px-6 text-center">
-        <h1 className="font-aeonik-pro text-[30px] font-bold">No profile yet</h1>
-        <p className="mt-3 max-w-md font-aeonik-pro text-[15px] font-medium">
-          Finish the five questions first. Keel packs the board from your sources.
-        </p>
-        <Link
-          href="/"
-          className="mt-8 rounded-full border border-carbon bg-carbon px-5 py-3 font-aeonik-pro text-[14px] font-bold tracking-[0.032em] text-paper-white"
-        >
-          Start onboarding
+      <main className="loading-page">
+        <KeelMascot mood="question" size={130} />
+        <h1>Let’s start with you.</h1>
+        <p>A few simple questions will help Keel explain your options.</p>
+        <Link href="/" className="button primary">
+          Find my first step
         </Link>
-      </div>
-    );
-  }
-
-  const pack = (profile.spread as SpreadPack | undefined) ?? bootPack;
-  if (!pack && !fetchError) {
-    return (
-      <div className="flex min-h-full flex-1 flex-col items-center justify-center bg-paper-white px-6">
-        <span className="relative mb-6 inline-flex size-11 items-center justify-center rounded-[16px] border border-carbon bg-sunburst">
-          <span className="font-aeonik-pro text-[13px] font-bold">K</span>
-        </span>
-        <p className="keel-in font-aeonik-pro text-[24px] font-bold">
-          Keel is reading the filing…
-        </p>
-      </div>
-    );
-  }
-
-  if (!pack || fetchError) {
-    return (
-      <div className="flex min-h-full flex-1 flex-col items-center justify-center bg-sky-wash px-6 text-center">
-        <h1 className="font-aeonik-pro text-[30px] font-bold">
-          Could not pack the board
-        </h1>
-        <p className="mt-3 max-w-md font-aeonik-pro text-[15px] font-medium">
-          Try again from onboarding. Seeded lines still work when APIs are quiet.
-        </p>
-        <Link
-          href="/"
-          className="mt-8 rounded-full border border-carbon bg-carbon px-5 py-3 font-aeonik-pro text-[14px] font-bold tracking-[0.032em] text-paper-white"
-        >
-          Start over
+        <Link href="/dashboard?demo=1" className="text-button">
+          Explore an example
         </Link>
-      </div>
+      </main>
     );
-  }
-
+  const dashboard =
+    profile.dashboard ?? (boot?.revision === revision ? boot.data : null);
+  if (!dashboard)
+    return error ? (
+      <main className="loading-page">
+        <KeelMascot mood="question" size={125} />
+        <h1>Let’s try that again.</h1>
+        <p role="alert">{error}</p>
+        <button
+          className="button primary"
+          onClick={() => setRefresh((r) => r + 1)}
+        >
+          Retry dashboard
+        </button>
+        <Link href="/dashboard?demo=1" className="text-button">
+          Explore an example while you wait
+        </Link>
+      </main>
+    ) : (
+      <Loading />
+    );
   return (
-    <Spread
-      pack={pack}
-      sessionId={sessionId}
-      sleepChip={profile.answers.sleep}
-      noise={profile.answers.noise}
-      priorAsks={profile.asks ?? []}
-    />
+    <>
+      {!profile.profileV2 && (
+        <div className="migration-banner">
+          We’ve made Keel easier to understand. Your earlier preferences are
+          kept; add your goal when you’re ready.
+          <button
+            onClick={() =>
+              void saveProfile({
+                sessionId,
+                profile: migrateProfile(profile.answers),
+              })
+            }
+          >
+            Keep exploring
+          </button>
+          <Link href="/?edit=1">Add my goal</Link>
+        </div>
+      )}
+      {error && (
+        <div role="alert" className="migration-banner">
+          {error} Showing your last available data.
+        </div>
+      )}
+      <Spread
+        key={revision}
+        dashboard={dashboard}
+        profile={migrateProfile(profile.profileV2 ?? profile.answers)}
+        sessionId={sessionId}
+        turns={profile.conversation ?? []}
+        savedAssets={profile.savedAssets ?? []}
+        onRefresh={() => setRefresh((r) => r + 1)}
+        refreshing={busy}
+        generationUsed={profile.generation?.requests.length ?? 0}
+      />
+    </>
   );
 }

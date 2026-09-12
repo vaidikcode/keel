@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as experienceValidators from "../experienceValidators.js";
 import type * as notes from "../notes.js";
 import type * as profiles from "../profiles.js";
 
@@ -18,6 +19,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  experienceValidators: typeof experienceValidators;
   notes: typeof notes;
   profiles: typeof profiles;
 }>;

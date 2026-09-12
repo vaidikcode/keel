@@ -12,12 +12,12 @@ const antonio = Antonio({
 const outfit = Outfit({
   variable: "--font-aeonik-src",
   subsets: ["latin"],
-  weight: ["500", "700"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
   title: "Keel",
-  description: "Investing, without the noise.",
+  description: "Understand your investing options, one clear step at a time.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
