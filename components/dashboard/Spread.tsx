@@ -22,6 +22,13 @@ import { PriceChart } from "./PriceChart";
 
 type View = "overview" | "explore" | "saved";
 type Mode = "history" | "compare" | "scenario";
+function sourceHost(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
 export function Spread({
   dashboard,
   profile,
@@ -30,7 +37,6 @@ export function Spread({
   savedAssets,
   onRefresh,
   refreshing,
-  generationUsed = 0,
 }: {
   dashboard: Dashboard;
   profile: Profile;
@@ -39,7 +45,6 @@ export function Spread({
   savedAssets: string[];
   onRefresh: () => void;
   refreshing: boolean;
-  generationUsed?: number;
 }) {
   const [view, setView] = useState<View>("overview"),
     [mode, setMode] = useState<Mode>("history");
@@ -62,6 +67,7 @@ export function Spread({
     [showConversation, setShowConversation] = useState(false);
   const [activeContext, setActiveContext] = useState("overview"),
     [notice, setNotice] = useState("");
+  const [cited, setCited] = useState<string[]>([]);
   const toggleSaved = useMutation(api.profiles.toggleSaved),
     newConversation = useMutation(api.profiles.newConversation);
   const interaction = useRef(0);
@@ -115,7 +121,6 @@ export function Spread({
       dashboard.sample ||
       !asset ||
       prepared.current ||
-      generationUsed >= 5 ||
       turns.some((t) => t.id.startsWith("prepare:"))
     )
       return;
@@ -144,7 +149,7 @@ export function Spread({
         await run("guidance", "What is a useful next step for my goal?");
     }
     void prepare().catch(() => {});
-  }, [dashboard.sample, asset, sessionId, generationUsed, turns]);
+  }, [dashboard.sample, asset, sessionId, turns]);
   if (!asset)
     return (
       <div className="empty-state">
@@ -157,6 +162,7 @@ export function Spread({
   function explain(text: string, context = "chart") {
     interaction.current += 1;
     setMessage(text);
+    setCited([]);
     setActiveContext(context);
     setMinimized(false);
   }
@@ -205,6 +211,7 @@ export function Spread({
         ? "Explore the drop scenario to see how a change in price affects an amount. These charts use sample data, so they can't tell us the real risk of an investment."
         : "This is an example dashboard. Try comparing two paths or changing the drop scenario. Add your goals to ask Keel questions about real data.";
       setMessage(reply);
+      setCited([]);
       setLocalTurns((t) => [
         ...t,
         {
@@ -251,6 +258,7 @@ export function Spread({
       }
       if (interaction.current === askedAtInteraction) {
         setMessage(reply.text);
+        setCited(Array.isArray(reply.sourceIds) ? reply.sourceIds : []);
         applyAction(reply.action);
       }
       setLocalTurns((t) => [
@@ -917,6 +925,20 @@ export function Spread({
                     </div>
                     <div className="speech" role="status">
                       {busy ? "Let me look at that with you…" : message}
+                      {!busy &&
+                        cited
+                          .filter((id) => /^https:\/\//.test(id))
+                          .map((id) => (
+                            <a
+                              className="speech-source"
+                              key={id}
+                              href={id}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {sourceHost(id)} ↗
+                            </a>
+                          ))}
                     </div>
                     <div className="quick-asks">
                       <button
@@ -933,6 +955,7 @@ export function Spread({
                       <button
                         onClick={() => {
                           setMessage(nextStep(profile));
+                          setCited([]);
                           if (profile.horizon === "unknown")
                             setNotice(
                               "Set your time frame in Edit your answers to make comparisons more useful.",
@@ -956,7 +979,7 @@ export function Spread({
                         id="ask-keel"
                         rows={2}
                         maxLength={500}
-                        placeholder="Ask anything about these options…"
+                        placeholder="Ask about these options or another stock…"
                         value={question}
                         onChange={(e) => setQuestion(e.target.value)}
                         disabled={busy}
@@ -977,18 +1000,30 @@ export function Spread({
                         {chatError}
                       </p>
                     )}
-                    {generationUsed >= 5 && (
+                    {allTurns.some(
+                      (t) =>
+                        !t.id.startsWith("prepare:") &&
+                        !t.id.startsWith("guidance:"),
+                    ) && (
                       <button
                         className="text-button new-conversation"
                         onClick={async () => {
+                          if (dashboard.sample) {
+                            setLocalTurns([]);
+                            setCited([]);
+                            setMessage(nextStep(profile));
+                            setChatError("");
+                            return;
+                          }
                           const ok = await newConversation({ sessionId });
                           if (ok) {
                             setLocalTurns([]);
+                            setCited([]);
                             setMessage(nextStep(profile));
                             setChatError("");
                           } else
                             setChatError(
-                              "You can start a new conversation 15 minutes after this one began. Your charts remain available.",
+                              "I couldn't start a new conversation. Please try again.",
                             );
                         }}
                       >
@@ -1034,7 +1069,7 @@ export function Spread({
                                   target="_blank"
                                   rel="noreferrer"
                                 >
-                                  {new URL(id).hostname.replace("www.", "")} ↗
+                                  {sourceHost(id)} ↗
                                 </a>
                               ))}
                           </div>

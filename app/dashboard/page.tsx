@@ -162,7 +162,6 @@ function LiveDashboard({ sessionId }: { sessionId: string }) {
         savedAssets={profile.savedAssets ?? []}
         onRefresh={() => setRefresh((r) => r + 1)}
         refreshing={busy}
-        generationUsed={profile.generation?.requests.length ?? 0}
       />
     </>
   );

@@ -35,8 +35,8 @@ const results = await Promise.all(
 );
 assert.equal(
   results.filter((r) => r.status === "reserved").length,
-  5,
-  "atomic budget must cap concurrent attempts at five",
+  8,
+  "questions are not capped; concurrent reservations must all succeed",
 );
 const first = results.findIndex((r) => r.status === "reserved");
 const duplicate = await client.mutation(api.profiles.reserveGeneration, {
@@ -71,9 +71,11 @@ p = await client.query(api.profiles.getBySession, { sessionId });
 assert.equal(p!.conversation!.length, 1);
 assert.equal(
   await client.mutation(api.profiles.newConversation, { sessionId }),
-  false,
-  "reset must respect cooldown",
+  true,
+  "a new conversation can start without a cooldown",
 );
+p = await client.query(api.profiles.getBySession, { sessionId });
+assert.equal(p!.conversation!.length, 0);
 assert.deepEqual(
   await client.mutation(api.profiles.toggleSaved, {
     sessionId,
@@ -100,8 +102,8 @@ assert.equal(
 );
 assert.equal(
   p!.generation!.requests.length,
-  5,
-  "editing a profile must not reset usage",
+  0,
+  "a new conversation clears generation tracking",
 );
 assert.equal(
   await client.mutation(api.profiles.saveDashboard, {
@@ -113,5 +115,5 @@ assert.equal(
   "stale work must not overwrite a newer profile",
 );
 console.log(
-  "PASS: local schema, profile persistence, atomic five-call cap, deduplication, conversation writes, cooldown, bookmarks and stale-revision protection.",
+  "PASS: local schema, profile persistence, unbounded reservations, deduplication, conversation writes, conversation reset, bookmarks and stale-revision protection.",
 );

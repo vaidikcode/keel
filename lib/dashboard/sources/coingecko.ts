@@ -101,6 +101,29 @@ export async function fetchCoinFiling(id: string): Promise<string[]> {
   return lines.slice(0, 3);
 }
 
+export async function searchCoins(query: string): Promise<
+  Array<{ id: string; name: string; symbol: string }>
+> {
+  const data = await geckoGet<{
+    coins?: Array<{ id?: string; name?: string; symbol?: string }>;
+  }>("/search", { query: query.slice(0, 40) });
+  if (!Array.isArray(data?.coins)) {
+    return [];
+  }
+  return data.coins
+    .flatMap((coin) => {
+      if (!coin?.id || !coin.name || !coin.symbol) return [];
+      return [
+        {
+          id: coin.id,
+          name: coin.name,
+          symbol: coin.symbol.toUpperCase(),
+        },
+      ];
+    })
+    .slice(0, 5);
+}
+
 export async function fetchTrendingNote(): Promise<string | null> {
   const data = await geckoGet<{
     coins?: Array<{ item?: { name?: string; symbol?: string } }>;

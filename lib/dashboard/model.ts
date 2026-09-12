@@ -34,7 +34,7 @@ export type Point = z.infer<typeof pointSchema>;
 export const replySchema = z.object({
   text: z.string().max(700),
   action: z.enum(["none", "compare", "scenario", "sources", "profile"]),
-  sourceIds: z.array(z.string()).max(3),
+  sourceIds: z.array(z.string()).max(5),
 });
 export type Reply = z.infer<typeof replySchema>;
 export type Turn = {

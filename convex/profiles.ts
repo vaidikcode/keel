@@ -356,7 +356,6 @@ export const saveExperience = mutation({
       intent: "learn",
     };
     if (existing) {
-      // Keep the budget on edits; profile changes cannot mint free generations.
       await ctx.db.patch("profiles", existing._id, {
         profileV2: profile,
         answers,
@@ -420,20 +419,18 @@ export const reserveGeneration = mutation({
     if (!p || (p.revision ?? 0) !== args.revision)
       return { status: "changed" as const, remaining: 0 };
     const generation = p.generation ?? { startedAt: Date.now(), requests: [] };
-    const remaining = Math.max(0, 5 - generation.requests.length);
     if (generation.requests.some((r) => r.id === args.requestId))
-      return { status: "duplicate" as const, remaining };
-    if (!remaining) return { status: "limit" as const, remaining: 0 };
+      return { status: "duplicate" as const, remaining: 1 };
     await ctx.db.patch("profiles", p._id, {
       generation: {
         ...generation,
         requests: [
           ...generation.requests,
           { id: clip(args.requestId, 160), status: "pending" as const },
-        ],
+        ].slice(-40),
       },
     });
-    return { status: "reserved" as const, remaining: remaining - 1 };
+    return { status: "reserved" as const, remaining: 1 };
   },
 });
 export const finishGeneration = mutation({
@@ -483,9 +480,6 @@ export const newConversation = mutation({
       .withIndex("by_sessionId", (q) => q.eq("sessionId", args.sessionId))
       .first();
     if (!p) return false;
-    // Explicit reset only, with a fixed cooldown across tabs and reloads.
-    if (p.generation && Date.now() - p.generation.startedAt < 15 * 60 * 1000)
-      return false;
     await ctx.db.patch("profiles", p._id, {
       generation: { startedAt: Date.now(), requests: [] },
       conversation: [],

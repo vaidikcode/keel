@@ -1527,6 +1527,12 @@ strong {
   height: 13px;
   transform: rotate(45deg);
 }
+.speech-source {
+  display: block;
+  margin-top: 8px;
+  font-size: 10px;
+  color: var(--harbor-deep);
+}
 .quick-asks {
   display: flex;
   flex-direction: column;
