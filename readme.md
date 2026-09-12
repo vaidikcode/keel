@@ -120,7 +120,7 @@ This repo deploys Convex production from GitHub Actions on every push to `main` 
 
 Teammates do **not** put a prod key on their laptops. Invite them to the Convex team so they can `convex dev` against this same **project** with **their own local** `.env.local`. When they push to `main`, CI uses the repo secret and updates **this** production backend.
 
-First-time local setup and prod-on-push: `.cursor/skills/convex-prod-on-push/SKILL.md`.
+First-time local setup and prod-on-push (any agent): `.agents/skills/convex-prod-on-push/SKILL.md`.
 
 Path from commit to prod backend:
 
