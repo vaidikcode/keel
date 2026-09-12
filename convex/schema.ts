@@ -1,46 +1,60 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
-const keelValidator = v.object({
-  line: v.string(),
-  experience: v.string(),
-  assets: v.array(v.string()),
-  risk: v.string(),
-  dashboard: v.array(
+const jargonValidator = v.object({
+  term: v.string(),
+  plain: v.string(),
+});
+
+const beatsValidator = v.object({
+  feed: v.string(),
+  filing: v.string(),
+  sleep: v.string(),
+  twin: v.string(),
+  jargon: v.string(),
+  mismatch: v.string(),
+});
+
+const assetPackValidator = v.object({
+  id: v.string(),
+  title: v.string(),
+  ticker: v.string(),
+  kind: v.string(),
+  feedLine: v.string(),
+  filingLine: v.string(),
+  sleepLine: v.string(),
+  twinLine: v.string(),
+  twinId: v.string(),
+  twinTitle: v.string(),
+  priceLabel: v.string(),
+  nights: v.number(),
+  maxDrawdownPct: v.number(),
+  pulse: v.array(v.number()),
+  jargon: v.array(jargonValidator),
+  beats: beatsValidator,
+  assetGreeting: v.string(),
+});
+
+const spreadPackValidator = v.object({
+  greeting: v.string(),
+  prompt: v.string(),
+  promptOptions: v.array(
     v.object({
-      id: v.string(),
-      title: v.string(),
-      summary: v.string(),
-      kind: v.string(),
+      id: v.union(v.literal("feed"), v.literal("filing")),
+      label: v.string(),
     }),
   ),
-  glossary: v.array(
-    v.object({
-      term: v.string(),
-      plain: v.string(),
-    }),
-  ),
-  riskIndicator: v.object({
-    id: v.string(),
-    title: v.string(),
-    level: v.string(),
-    how: v.string(),
-  }),
-  decisionFlow: v.object({
-    id: v.string(),
-    title: v.string(),
-    how: v.string(),
-  }),
+  asks: v.array(v.string()),
+  assets: v.array(assetPackValidator),
+  source: v.union(v.literal("gateway"), v.literal("fallback")),
 });
 
 const answersValidator = v.object({
-  experience: v.string(),
-  goal: v.string(),
-  assets: v.array(v.string()),
-  risk: v.string(),
-  confusions: v.array(v.string()),
-  impulse: v.string(),
-  horizon: v.string(),
+  watch: v.string(),
+  noise: v.string(),
+  sleep: v.string(),
+  fog: v.array(v.string()),
+  intent: v.string(),
 });
 
 export default defineSchema({
@@ -53,8 +67,17 @@ export default defineSchema({
   profiles: defineTable({
     sessionId: v.string(),
     answers: answersValidator,
-    keel: keelValidator,
-    catalogSource: v.union(v.literal("gateway"), v.literal("fallback")),
+    spread: v.optional(spreadPackValidator),
+    spreadAt: v.optional(v.number()),
+    asks: v.optional(
+      v.array(
+        v.object({
+          assetId: v.string(),
+          question: v.string(),
+          reply: v.string(),
+        }),
+      ),
+    ),
     createdAt: v.number(),
   }).index("by_sessionId", ["sessionId"]),
 });
