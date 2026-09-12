@@ -14,8 +14,9 @@ const sharedFields = {
   intent: z.enum(["learn", "choose", "understand"]),
   goal: z.enum(["explore", "purchase", "wealth", "retirement"]),
   horizon: z.enum(["soon", "medium", "long", "future", "unknown"]),
-  country: z.enum(["US", "IN", "GB", "other"]),
-  currency: z.enum(["USD", "INR", "GBP"]),
+  // ISO 3166-1 alpha-2 and ISO 4217, widened from enums so any country works.
+  country: z.string().min(2).max(5),
+  currency: z.string().min(3).max(3),
   experience: z.enum(["new", "some", "experienced"]),
   risk: z.enum(["careful", "balanced", "comfortable", "unknown"]),
   amount: z.number().min(0).max(1e9).nullable(),
@@ -78,12 +79,20 @@ export const horizonLabels: Record<Profile["horizon"], string> = {
   future: "More than 5 years",
   unknown: "Not sure yet",
 };
-export const countryLabels: Record<Profile["country"], string> = {
+const knownCountries: Record<string, string> = {
   US: "United States",
   IN: "India",
   GB: "United Kingdom",
   other: "Somewhere else",
 };
+export function countryLabel(code: string): string {
+  if (knownCountries[code]) return knownCountries[code];
+  try {
+    return new Intl.DisplayNames(["en"], { type: "region" }).of(code.toUpperCase()) ?? code;
+  } catch {
+    return code;
+  }
+}
 export const experienceLabels: Record<Profile["experience"], string> = {
   new: "Completely new to investing",
   some: "Tried a little",
@@ -141,7 +150,7 @@ export function profileAnswers(profile: Profile): Record<string, string> {
       : "Help me explore",
     goal: goalLabels[profile.goal],
     horizon: horizonLabels[profile.horizon],
-    country: countryLabels[profile.country],
+    country: countryLabel(profile.country),
     currency: profile.currency,
     experience: experienceLabels[profile.experience],
     risk: riskLabels[profile.risk],
@@ -160,12 +169,18 @@ export function profileAnswers(profile: Profile): Record<string, string> {
   };
 }
 
-export const currencyFormat = (amount: number, currency = "USD") =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  }).format(amount);
+export const currencyFormat = (amount: number, currency = "USD") => {
+  // Intl throws RangeError on an unknown currency code; fall back to a plain number.
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(amount)} ${currency}`;
+  }
+};
 
 const watchToInterests: Record<ProfileV2["watch"], CategoryId[]> = {
   all: ["broad-funds", "bond-cash", "large-stable"],

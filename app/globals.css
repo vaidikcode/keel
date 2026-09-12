@@ -2988,3 +2988,73 @@ strong {
   margin-right: 6px;
   vertical-align: middle;
 }
+
+/* Clerk sign-in/sign-up styling (class names handed to Clerk via lib/clerkAppearance.ts) */
+:root { --ease-expo-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-expo-in: cubic-bezier(0.7, 0, 0.84, 0); --ease-expo-in-out: cubic-bezier(0.87, 0, 0.13, 1); }
+/* Clerk's card, wearing our clothes. These are our own class names, handed to
+   Clerk through its `appearance` prop, so none of this depends on Clerk's
+   internal markup the way styling `.cl-*` directly would. */
+/* The frame goes on the root, not the inner card: Clerk renders its footer as
+   a sibling of the card, so bordering the card left the extrusion cutting
+   across the middle with the footer hanging outside it. */
+.auth-page .keel-auth-root {
+  border: 2px solid var(--ink);
+  border-radius: 18px;
+  box-shadow: 0 7px 0 var(--ink);
+  background: var(--surface);
+  overflow: hidden;
+}
+.auth-page .keel-auth-card {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--surface);
+  padding: 32px 30px 26px;
+}
+.auth-page .keel-auth-title {
+  font-family: var(--font-lateral);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: -0.8px;
+  font-size: 30px;
+  color: var(--ink);
+}
+.auth-page .keel-auth-sub {
+  color: var(--muted);
+  font-size: 13px;
+}
+.auth-page .keel-auth-cta {
+  background: var(--harbor-deep);
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  box-shadow: 0 4px 0 var(--ink);
+  text-transform: none;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+  transition:
+    transform 0.24s var(--ease-expo-out),
+    box-shadow 0.24s var(--ease-expo-out);
+}
+.auth-page .keel-auth-cta:hover {
+  background: #174b8f;
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 var(--ink);
+}
+.keel-auth-input,
+.auth-page .keel-auth-social {
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.auth-page .keel-auth-input:focus {
+  outline: 2px solid var(--harbor);
+  outline-offset: 1px;
+}
+.auth-page .keel-auth-link {
+  color: var(--harbor-deep);
+  font-weight: 600;
+}
+.auth-page .keel-auth-hidden {
+  display: none;
+}

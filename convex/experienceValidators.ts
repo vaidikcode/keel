@@ -19,13 +19,10 @@ export const profileV2 = v.object({
     v.literal("future"),
     v.literal("unknown"),
   ),
-  country: v.union(
-    v.literal("US"),
-    v.literal("IN"),
-    v.literal("GB"),
-    v.literal("other"),
-  ),
-  currency: v.union(v.literal("USD"), v.literal("INR"), v.literal("GBP")),
+  // Free strings (ISO 3166 / ISO 4217) so any country works; widening is
+  // schema-safe because every stored value is already a string.
+  country: v.string(),
+  currency: v.string(),
   experience: v.union(
     v.literal("new"),
     v.literal("some"),
@@ -78,13 +75,10 @@ export const profileV3 = v.object({
     v.literal("future"),
     v.literal("unknown"),
   ),
-  country: v.union(
-    v.literal("US"),
-    v.literal("IN"),
-    v.literal("GB"),
-    v.literal("other"),
-  ),
-  currency: v.union(v.literal("USD"), v.literal("INR"), v.literal("GBP")),
+  // Free strings (ISO 3166 / ISO 4217) so any country works; widening is
+  // schema-safe because every stored value is already a string.
+  country: v.string(),
+  currency: v.string(),
   experience: v.union(
     v.literal("new"),
     v.literal("some"),
@@ -114,6 +108,63 @@ export const profileV3 = v.object({
   monthly: v.union(v.number(), v.null()),
   emergency: v.union(v.literal("yes"), v.literal("no"), v.literal("unknown")),
   debt: v.union(v.literal("yes"), v.literal("no"), v.literal("unknown")),
+});
+
+/** Five fixed intake answers (teammate's onboarding). Optional sibling of profileV*. */
+export const intakeValidator = v.object({
+  version: v.literal(1),
+  vehicle: v.union(
+    v.literal("trading"),
+    v.literal("stocks"),
+    v.literal("crypto"),
+    v.literal("unsure"),
+  ),
+  timescale: v.union(
+    v.literal("days"),
+    v.literal("months"),
+    v.literal("years"),
+    v.literal("decade"),
+  ),
+  country: v.string(),
+  currency: v.string(),
+  budgetLow: v.union(v.number(), v.null()),
+  budgetHigh: v.union(v.number(), v.null()),
+  riskBand: v.union(
+    v.literal("high"),
+    v.literal("balanced"),
+    v.literal("low"),
+    v.literal("veryLow"),
+  ),
+});
+
+/** Inference derived from intake by lib/onboarding/signals.ts. */
+export const signalsValidator = v.object({
+  v: v.literal(1),
+  capturedAt: v.number(),
+  revision: v.number(),
+  incomeShareCap: v.number(),
+  volatilityTolerance: v.union(
+    v.literal("high"),
+    v.literal("moderate"),
+    v.literal("low"),
+    v.literal("none"),
+  ),
+  preferredKinds: v.array(v.string()),
+  horizonDays: v.number(),
+  cadence: v.union(
+    v.literal("day"),
+    v.literal("month"),
+    v.literal("year"),
+    v.literal("decade"),
+  ),
+  intradayIntent: v.boolean(),
+  overexposureFlag: v.boolean(),
+  balancedPortfolioRequired: v.boolean(),
+  confidence: v.union(
+    v.literal("stated"),
+    v.literal("inferred"),
+    v.literal("default"),
+  ),
 });
 export const actionValidator = v.union(
   v.literal("none"),
@@ -274,6 +325,8 @@ export const legacyAskValidator = v.object({
 export const experienceFields = {
   profileV2: v.optional(profileV2),
   profileV3: v.optional(profileV3),
+  intake: v.optional(intakeValidator),
+  signals: v.optional(signalsValidator),
   revision: v.optional(v.number()),
   dashboard: v.optional(dashboardValidator),
   savedAssets: v.optional(v.array(v.string())),

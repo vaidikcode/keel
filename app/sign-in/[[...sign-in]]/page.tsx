@@ -1,14 +1,15 @@
 import { SignIn } from "@clerk/nextjs";
-import Link from "next/link";
+import { keelAppearance } from "@/lib/clerkAppearance";
 
 export default function SignInPage() {
   return (
     <main className="auth-page">
-      <Link href="/" className="wordmark">
-        <span className="brand-mark">k.</span>keel
-        <span className="brand-dot">●</span>
-      </Link>
-      <SignIn />
+      {/* Not a link: once someone is signing in there is nothing to go back
+          to, and clicking through to the landing page loses their place. */}
+      <span className="wordmark" aria-hidden="true">
+        <span className="brand-mark">k.</span>
+      </span>
+      <SignIn appearance={keelAppearance} />
     </main>
   );
 }

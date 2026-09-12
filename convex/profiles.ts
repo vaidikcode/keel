@@ -1,6 +1,7 @@
 import {
   dashboardValidator,
   experienceFields,
+  intakeValidator,
   legacyAskValidator,
   legacySpreadValidator,
   profileV2,
@@ -13,6 +14,7 @@ import { v } from "convex/values";
 import { migrateProfile, profileSchema } from "../lib/onboarding/questions";
 import { ALL_ASSET_IDS } from "../lib/market/categories";
 import { requireOwner } from "./access";
+import { deriveSignals, intakeFromProfile, intakeSchema } from "../lib/onboarding/signals";
 
 const MAX_SESSION = 80;
 
@@ -57,12 +59,18 @@ export const getBySession = query({
 });
 
 export const saveExperience = mutation({
-  args: { sessionId: v.string(), profile: v.union(profileV2, profileV3) },
+  args: {
+    sessionId: v.string(),
+    profile: v.union(profileV2, profileV3),
+    intake: v.optional(intakeValidator),
+  },
   returns: v.id("profiles"),
   handler: async (ctx, args) => {
     const sessionId = clip(args.sessionId, MAX_SESSION);
     await requireOwner(ctx, sessionId);
     const profile = profileSchema.parse(migrateProfile(args.profile));
+    // Intake mirrors the profile so the teammate's signals stay populated.
+    const intake = args.intake ? intakeSchema.parse(args.intake) : intakeFromProfile(profile);
     const existing = await ctx.db
       .query("profiles")
       .withIndex("by_sessionId", (q) => q.eq("sessionId", sessionId))
@@ -86,11 +94,14 @@ export const saveExperience = mutation({
       intent: "learn",
     };
     if (existing) {
+      const revision = (existing.revision ?? 0) + 1;
       await ctx.db.patch("profiles", existing._id, {
         profileV3: profile,
         profileV2: undefined,
         answers,
-        revision: (existing.revision ?? 0) + 1,
+        revision,
+        intake,
+        signals: deriveSignals(intake, revision),
         dashboard: undefined,
         spread: undefined,
         spreadAt: undefined,
@@ -105,6 +116,8 @@ export const saveExperience = mutation({
       profileV3: profile,
       answers,
       revision: 1,
+      intake,
+      signals: deriveSignals(intake, 1),
       createdAt: Date.now(),
     });
   },
