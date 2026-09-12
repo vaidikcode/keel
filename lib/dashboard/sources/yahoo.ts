@@ -1,3 +1,4 @@
+import { CRYPTO_TICKERS } from "../../market/categories";
 export type YahooQuoteMatch = {
   symbol: string;
   name: string;
@@ -46,7 +47,7 @@ export function yahooSymbol(ticker: string): string {
   const raw = ticker.trim().toUpperCase();
   const symbol = raw.includes(":") ? raw.slice(raw.lastIndexOf(":") + 1) : raw;
   const crypto = symbol.replace(/USDT$/, "").replace(/-USD$/, "");
-  if (["BTC", "ETH", "DOGE", "SOL"].includes(crypto)) return `${crypto}-USD`;
+  if (CRYPTO_TICKERS.includes(crypto)) return `${crypto}-USD`;
   return symbol.replace(/USDT$/, "");
 }
 

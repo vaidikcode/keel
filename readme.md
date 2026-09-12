@@ -28,49 +28,22 @@ Never copy another developer's `.env.local`, commit `.convex/`, or put a product
 See [.env.example](.env.example). All provider credentials stay server-side.
 
 - `NEXT_PUBLIC_CONVEX_URL`: local Convex URL created during setup.
-- `AI_GATEWAY_API_KEY`: enables new Keel explanations and questions. Without it, charts, scenarios and prepared local explanations remain usable.
-- `FINNHUB_API_KEY`: optional dated company news.
-- `SEC_USER_AGENT`: your valid contact string for optional SEC company facts.
-- `COINGECKO_API_KEY`: optional key for Bitcoin history.
+- `AI_GATEWAY_API_KEY`: enables Keel's thoughts and answers to questions. Without it, rankings, charts and scenarios still work and the hero card falls back to rule-based reasons.
+- `TAVILY_API_KEY`: optional web search for recent facts per category and asset, plus the assistant's `searchWeb` tool. Without it, fact sections are empty and responses carry a `tavily:off` warning.
+- `FINNHUB_API_KEY`: optional company profiles (market value) and dated company news.
+- `SEC_USER_AGENT`: your valid contact string for SEC company facts. Ticker to CIK mapping is looked up from SEC's public list and cached for a week.
+- `COINGECKO_API_KEY`: optional demo key for crypto market data.
+- `KEEL_MODEL`: optional model string behind the AI Gateway (default `openai/gpt-4o-mini`).
+- `KEEL_REQUIRE_AUTH` (Convex env, not Next): set to `true` to require a Clerk identity matching the profile's session id. Leave unset until the Clerk JWT template named `convex` exists on that instance.
 
-US security history comes from Yahoo Finance and selected crypto assets history from CoinGecko. Unavailable providers produce missing-data states, never fabricated history. The collection is intentionally limited to selected US securities and selected crypto assets. Scenario currency does not convert market data from USD.
+Daily price history for every asset in a category comes from one batched Yahoo Finance call (with a per-symbol fallback), crypto market data from one CoinGecko call, and company size from Finnhub. Snapshots are cached in Convex and shared by every user for 45 minutes (3 hours outside US market hours). Unavailable providers produce missing-data states, never fabricated history.
 
 ## Experience and implementation
 
-- Adaptive onboarding: five core steps; three additional readiness questions when exploring investments for the user. Draft progress stays in this browser until saved to Convex.
-- Explorer: selectable date ranges, keyboard/touch scrubbing, comparisons over shared dates, and a text table alternative.
-- Scenarios: amount and percentage controls calculated in code, labeled hypothetical.
-- Keel: animated character states, chart pointing, contextual guidance, pause/minimize and reduced-motion support.
-- Saved options and conversation are stored in Convex. Existing profiles remain readable; newly needed fields are unknown until supplied.
-- Generation budget: at most five attempts per conversation, including up to two initial explanations. Atomic reservation prevents concurrent overspend; request IDs deduplicate transport retries. New conversations have a 15-minute cooldown. Failed attempts consume budget but never become successful answers.
-- Model output is validated text plus an allowlisted interface action and source URLs. Models do not calculate portfolio values or execute code. Guidance focuses on grounded comparisons and asks for missing context before suggesting a personalized direction.
-
-See [design.md](design.md) and [docs/experience-revamp-plan.md](docs/experience-revamp-plan.md) for the design rules and original plan.
-
-## Checks
-
-```bash
-bun test
-bun run lint
-bun run typecheck
-bun run build
-```
-
-With local Convex running, `bun scripts/verify-local.ts` verifies profile/cache persistence, concurrent budgeting, duplicate requests, cooldown, saved options and stale-revision protection. It refuses non-local URLs and creates a disposable verification profile.
-
-Key files:
-
-- `components/onboarding/Onboarding.tsx`: guided questions and editable summary.
-- `components/dashboard/Spread.tsx`: dashboard workspace and companion conversation.
-- `components/dashboard/PriceChart.tsx`: date-aligned interactive charts.
-- `lib/dashboard/model.ts`: schemas and deterministic calculations.
-- `lib/dashboard/sources/`: dated observations and source evidence.
-- `app/api/spread/route.ts`: facts-only dashboard assembly and cache refresh.
-- `app/api/keel-ask/route.ts`: grounded explanations with structured actions.
-- `convex/profiles.ts`: backward-compatible profiles, bookmarks and atomic generation state.
-
-## Production
-
-A push to `main` deploys Convex production through the existing GitHub Action using the configured repository secret. A commit alone does not deploy. Never run `convex deploy` unless explicitly asked to push production from this machine.
-
-Vercel hosts the frontend. Production needs `NEXT_PUBLIC_CONVEX_URL=https://youthful-manatee-537.convex.cloud` on one line, followed by a redeploy. Never put the production deploy key in Preview environments. Local verification does not deploy either service.
+- Onboarding: eleven short steps. Every answer feeds either category selection (`lib/market/select.ts`) or the capacity score (`lib/market/fit.ts`). Finishing opens the dashboard on the first chosen category.
+- Categories: seven curated universes of 10–12 assets each in `lib/market/categories.ts`.
+- Risk score (0–100, `lib/market/risk.ts`): volatility, largest drawdown, downside deviation, worst 30 days, beta to VOO, size and concentration, with documented weights. Fit compares an asset's risk with the person's capacity and penalises too-risky harder than too-calm. Ranking is by fit.
+- Dashboard (`/dashboard/[categoryId]`): category sidebar, "Keel's thoughts" hero with because-you-said chips and cited sources, Netflix-style ranked cards with a minimal hover/focus overlay, recent facts, and a trending strip.
+- Asset page (`/asset/[id]`): price chart, risk explained with meters, a loss scenario seeded from the person's answers, filings and news with links, and rule-based next steps.
+- Keel overlay: a floating companion on every post-onboarding page. Drag any card onto it (or use "Ask Keel" on the card) to attach that asset as context; asset pages attach themselves automatically.
+- Saved options and conversation are stored in Convex. Request IDs deduplicate transport retries; concurrent category refreshes are serialised with a lock.

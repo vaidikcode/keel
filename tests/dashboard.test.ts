@@ -70,12 +70,26 @@ test("legacy migration keeps preferences and does not invent financial readiness
     sleep: "steady",
     intent: "park",
   });
-  assert.equal(migrated.watch, "stocks");
+  assert.deepEqual(migrated.interests, ["large-stable", "growth-tech", "dividend"]);
+  assert.equal(migrated.lossTolerance, 10);
   assert.equal(migrated.risk, "careful");
   assert.equal(migrated.horizon, "unknown");
   assert.equal(migrated.amount, null);
   assert.equal(migrated.emergency, "unknown");
   assert.deepEqual(migrateProfile(null), defaultProfile);
+  const fromV2 = migrateProfile({
+    ...defaultProfile,
+    version: 2,
+    watch: "crypto",
+    risk: "comfortable",
+    interests: undefined,
+    lossTolerance: undefined,
+    income: undefined,
+  });
+  assert.equal(fromV2.version, 3);
+  assert.deepEqual(fromV2.interests, ["crypto", "broad-funds"]);
+  assert.equal(fromV2.lossTolerance, 40);
+  assert.equal(fromV2.income, "unknown");
   assert.equal(
     profileSchema.safeParse({ ...defaultProfile, amount: -10 }).success,
     false,
@@ -84,7 +98,12 @@ test("legacy migration keeps preferences and does not invent financial readiness
 test("unknown circumstances prompt context rather than a suitability claim", () => {
   assert.match(nextStep(defaultProfile), /time frame/);
   assert.match(
-    nextStep({ ...defaultProfile, intent: "choose", horizon: "future" }),
+    nextStep({
+      ...defaultProfile,
+      intent: "choose",
+      horizon: "future",
+      lossTolerance: 20,
+    }),
     /finances/,
   );
   assert.match(
@@ -92,6 +111,7 @@ test("unknown circumstances prompt context rather than a suitability claim", () 
       ...defaultProfile,
       intent: "choose",
       horizon: "future",
+      lossTolerance: 20,
       amount: 1000,
       emergency: "no",
       debt: "no",

@@ -8,9 +8,15 @@
  * @module
  */
 
+import type * as access from "../access.js";
+import type * as assetDetails from "../assetDetails.js";
 import type * as experienceValidators from "../experienceValidators.js";
+import type * as kv from "../kv.js";
+import type * as marketValidators from "../marketValidators.js";
 import type * as notes from "../notes.js";
 import type * as profiles from "../profiles.js";
+import type * as snapshots from "../snapshots.js";
+import type * as thoughts from "../thoughts.js";
 
 import type {
   ApiFromModules,
@@ -19,9 +25,15 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  access: typeof access;
+  assetDetails: typeof assetDetails;
   experienceValidators: typeof experienceValidators;
+  kv: typeof kv;
+  marketValidators: typeof marketValidators;
   notes: typeof notes;
   profiles: typeof profiles;
+  snapshots: typeof snapshots;
+  thoughts: typeof thoughts;
 }>;
 
 /**

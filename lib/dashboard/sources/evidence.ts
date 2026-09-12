@@ -1,4 +1,5 @@
 import type { Investment } from "../model";
+import { resolveCik } from "../../market/sources/secTickers";
 type Evidence = Investment["evidence"][number];
 export async function fetchEvidence(ticker: string): Promise<Evidence[]> {
   const key = process.env.FINNHUB_API_KEY?.trim();
@@ -45,16 +46,11 @@ export async function fetchEvidence(ticker: string): Promise<Evidence[]> {
 }
 export async function fetchFinancialEvidence(
   ticker: string,
+  cache?: Parameters<typeof resolveCik>[1],
 ): Promise<Evidence[]> {
-  const cik = (
-    {
-      AAPL: "0000320193",
-      NVDA: "0001045810",
-      JNJ: "0000200406",
-      TSLA: "0001318605",
-    } as Record<string, string>
-  )[ticker];
-  if (!cik || !process.env.SEC_USER_AGENT?.trim()) return [];
+  if (!process.env.SEC_USER_AGENT?.trim()) return [];
+  const cik = await resolveCik(ticker, cache);
+  if (!cik) return [];
   try {
     const url = `https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`;
     const response = await fetch(url, {

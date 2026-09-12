@@ -14,7 +14,7 @@ await client.mutation(api.profiles.saveExperience, {
   profile: defaultProfile,
 });
 let p = await client.query(api.profiles.getBySession, { sessionId });
-assert.equal(p?.profileV2?.version, 2);
+assert.equal(p?.profileV3?.version, 3);
 const revision = p!.revision!;
 assert.equal(
   await client.mutation(api.profiles.saveDashboard, {
