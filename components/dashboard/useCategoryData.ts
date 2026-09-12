@@ -5,12 +5,7 @@ import { categoryResponseSchema, type CategoryResponse } from "@/lib/dashboard/a
 type Status = "idle" | "loading" | "ready" | "error";
 const cache = new Map<string, CategoryResponse>();
 
-export function useCategoryData(
-  categoryId: string,
-  sessionId: string | null,
-  revision: number,
-  authHeaders: () => Promise<Record<string, string>>,
-) {
+export function useCategoryData(categoryId: string, sessionId: string | null, revision: number) {
   const [status, setStatus] = useState<Status>("idle");
   const [data, setData] = useState<CategoryResponse | null>(null);
   const [error, setError] = useState("");
@@ -32,15 +27,12 @@ export function useCategoryData(
     controller.current = ac;
     setStatus("loading");
     setError("");
-    authHeaders()
-      .then((headers) =>
-        fetch("/api/category", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...headers },
-          body: JSON.stringify({ sessionId, categoryId, force: nonce > 0 }),
-          signal: ac.signal,
-        }),
-      )
+    fetch("/api/category", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId, categoryId, force: nonce > 0 }),
+      signal: ac.signal,
+    })
       .then(async (response) => {
         const body = await response.json();
         if (!response.ok) throw new Error(body.error ?? "We couldn't load this category.");
@@ -57,7 +49,7 @@ export function useCategoryData(
         setStatus("error");
       });
     return () => ac.abort();
-  }, [authHeaders, categoryId, key, nonce, sessionId]);
+  }, [categoryId, key, nonce, sessionId]);
 
   const refresh = useCallback(() => setNonce((n) => n + 1), []);
   const setThoughts = useCallback(

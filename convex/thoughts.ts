@@ -1,7 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { keelThoughtsFields } from "./marketValidators";
-import { requireOwner } from "./access";
 
 const keyArgs = {
   sessionId: v.string(),
@@ -19,7 +18,6 @@ export const get = query({
   args: keyArgs,
   returns: v.union(thoughtsDoc, v.null()),
   handler: async (ctx, args) => {
-    await requireOwner(ctx, args.sessionId);
     return await ctx.db
       .query("keelThoughts")
       .withIndex("by_key", (q) =>
@@ -43,7 +41,6 @@ export const put = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    await requireOwner(ctx, args.sessionId);
     const existing = await ctx.db
       .query("keelThoughts")
       .withIndex("by_key", (q) =>

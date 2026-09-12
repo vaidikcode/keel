@@ -1,7 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { categorySnapshotFields, snapshotStatusV } from "./marketValidators";
-import { requireSignedIn } from "./access";
 
 const LOCK_MS = 90_000;
 const MAX_ASSETS = 12;
@@ -38,7 +37,6 @@ export const claimRefresh = mutation({
   args: { categoryId: v.string(), now: v.number(), force: v.optional(v.boolean()) },
   returns: v.union(v.literal("claimed"), v.literal("fresh"), v.literal("busy")),
   handler: async (ctx, args) => {
-    await requireSignedIn(ctx);
     const row = await ctx.db
       .query("categorySnapshots")
       .withIndex("by_category", (q) => q.eq("categoryId", args.categoryId))
@@ -88,7 +86,6 @@ export const put = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireSignedIn(ctx);
     const s = args.snapshot;
     if (s.assets.length > MAX_ASSETS) throw new Error("Too many assets");
     if (
@@ -117,7 +114,6 @@ export const release = mutation({
   args: { categoryId: v.string(), status: snapshotStatusV, warning: v.optional(v.string()) },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireSignedIn(ctx);
     const row = await ctx.db
       .query("categorySnapshots")
       .withIndex("by_category", (q) => q.eq("categoryId", args.categoryId))

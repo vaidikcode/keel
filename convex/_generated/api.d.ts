@@ -8,7 +8,6 @@
  * @module
  */
 
-import type * as access from "../access.js";
 import type * as assetDetails from "../assetDetails.js";
 import type * as experienceValidators from "../experienceValidators.js";
 import type * as kv from "../kv.js";
@@ -25,7 +24,6 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  access: typeof access;
   assetDetails: typeof assetDetails;
   experienceValidators: typeof experienceValidators;
   kv: typeof kv;

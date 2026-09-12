@@ -34,7 +34,6 @@ See [.env.example](.env.example). All provider credentials stay server-side.
 - `SEC_USER_AGENT`: your valid contact string for SEC company facts. Ticker to CIK mapping is looked up from SEC's public list and cached for a week.
 - `COINGECKO_API_KEY`: optional demo key for crypto market data.
 - `KEEL_MODEL`: optional model string behind the AI Gateway (default `openai/gpt-4o-mini`).
-- `KEEL_REQUIRE_AUTH` (Convex env, not Next): set to `true` to require a Clerk identity matching the profile's session id. Leave unset until the Clerk JWT template named `convex` exists on that instance.
 
 Daily price history for every asset in a category comes from one batched Yahoo Finance call (with a per-symbol fallback), crypto market data from one CoinGecko call, and company size from Finnhub. Snapshots are cached in Convex and shared by every user for 45 minutes (3 hours outside US market hours). Unavailable providers produce missing-data states, never fabricated history.
 

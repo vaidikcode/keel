@@ -1,7 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { assetDetailsFields } from "./marketValidators";
-import { requireSignedIn } from "./access";
 
 const detailsDoc = v.object({
   ...assetDetailsFields,
@@ -34,7 +33,6 @@ export const put = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireSignedIn(ctx);
     if (args.details.news.length > 12 || args.details.facts.length > 8)
       throw new Error("Too many detail rows");
     const doc = { assetId: args.assetId, ...args.details };

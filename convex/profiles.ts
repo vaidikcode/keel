@@ -13,7 +13,6 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { migrateProfile, profileSchema } from "../lib/onboarding/questions";
 import { ALL_ASSET_IDS } from "../lib/market/categories";
-import { requireOwner } from "./access";
 import { deriveSignals, intakeFromProfile, intakeSchema } from "../lib/onboarding/signals";
 
 const MAX_SESSION = 80;
@@ -49,7 +48,6 @@ export const getBySession = query({
     if (sessionId.length === 0 || sessionId.length > MAX_SESSION) {
       return null;
     }
-    await requireOwner(ctx, sessionId);
     return await ctx.db
       .query("profiles")
       .withIndex("by_sessionId", (q) => q.eq("sessionId", sessionId))
@@ -67,7 +65,6 @@ export const saveExperience = mutation({
   returns: v.id("profiles"),
   handler: async (ctx, args) => {
     const sessionId = clip(args.sessionId, MAX_SESSION);
-    await requireOwner(ctx, sessionId);
     const profile = profileSchema.parse(migrateProfile(args.profile));
     // Intake mirrors the profile so the teammate's signals stay populated.
     const intake = args.intake ? intakeSchema.parse(args.intake) : intakeFromProfile(profile);
@@ -130,7 +127,6 @@ export const saveDashboard = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    await requireOwner(ctx, args.sessionId);
     const p = await ctx.db
       .query("profiles")
       .withIndex("by_sessionId", (q) => q.eq("sessionId", args.sessionId))
@@ -157,7 +153,6 @@ export const reserveGeneration = mutation({
     remaining: v.number(),
   }),
   handler: async (ctx, args) => {
-    await requireOwner(ctx, args.sessionId);
     const p = await ctx.db
       .query("profiles")
       .withIndex("by_sessionId", (q) => q.eq("sessionId", args.sessionId))
@@ -188,7 +183,6 @@ export const finishGeneration = mutation({
   },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    await requireOwner(ctx, args.sessionId);
     const p = await ctx.db
       .query("profiles")
       .withIndex("by_sessionId", (q) => q.eq("sessionId", args.sessionId))
@@ -222,7 +216,6 @@ export const newConversation = mutation({
   args: { sessionId: v.string() },
   returns: v.boolean(),
   handler: async (ctx, args) => {
-    await requireOwner(ctx, args.sessionId);
     const p = await ctx.db
       .query("profiles")
       .withIndex("by_sessionId", (q) => q.eq("sessionId", args.sessionId))
@@ -239,7 +232,6 @@ export const toggleSaved = mutation({
   args: { sessionId: v.string(), assetId: v.string() },
   returns: v.array(v.string()),
   handler: async (ctx, args) => {
-    await requireOwner(ctx, args.sessionId);
     const p = await ctx.db
       .query("profiles")
       .withIndex("by_sessionId", (q) => q.eq("sessionId", args.sessionId))

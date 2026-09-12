@@ -1,7 +1,6 @@
 import { generateText, Output } from "ai";
 import { z } from "zod";
-import { convexForRequest, withAuthHeader } from "@/lib/server/convexClient";
-import { convexErrorResponse } from "@/lib/server/convexError";
+import { convexForRequest } from "@/lib/server/convexClient";
 import { api } from "@/convex/_generated/api";
 import { KEEL_MODEL } from "@/lib/ai/model";
 import { migrateProfile } from "@/lib/onboarding/questions";
@@ -26,10 +25,9 @@ export async function POST(request: Request) {
   const categoryId = parsed.data.categoryId as CategoryId;
   if (sessionId === "demo")
     return Response.json({ error: "Keel's thoughts are only written for your own answers." }, { status: 400 });
-  const convex = await convexForRequest(request);
-  if (!convex)
+  const client = convexForRequest();
+  if (!client)
     return Response.json({ error: "Keel is temporarily unavailable." }, { status: 503 });
-  const { client, authState } = convex;
   try {
     const [profileDoc, [snapshot]] = await Promise.all([
       client.query(api.profiles.getBySession, { sessionId }),
@@ -70,8 +68,8 @@ export async function POST(request: Request) {
       sourceIds: out.data.sourceIds.filter((id) => allowed.has(id)),
     };
     await client.mutation(api.thoughts.put, { ...key, ...thoughts });
-    return withAuthHeader(Response.json({ thoughts, cached: false }), authState);
-  } catch (error) {
-    return withAuthHeader(convexErrorResponse(error, "Keel couldn't finish writing. The ranking still works."), authState);
+    return Response.json({ thoughts, cached: false });
+  } catch {
+    return Response.json({ error: "Keel couldn't finish writing. The ranking still works." }, { status: 503 });
   }
 }
