@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Antonio, Outfit } from "next/font/google";
+import { keelLocalization } from "@/lib/clerkAppearance";
 import { ConvexClientProvider } from "./ConvexClientProvider";
 import "./globals.css";
 
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {clerkPublishableKey ? (
           <ClerkProvider
             publishableKey={clerkPublishableKey}
+            localization={keelLocalization}
             appearance={{
               variables: {
                 colorPrimary: "#205daa",
