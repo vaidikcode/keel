@@ -2452,7 +2452,6 @@ strong {
   /* Anchored bottom-right, then moved by the drag offset. Translating keeps
      the buddy composited and avoids a layout pass on every pointermove. */
   inset: auto 20px 20px auto;
-  translate: var(--kx, 0px) var(--ky, 0px);
   z-index: 60;
   display: flex;
   flex-direction: column;
@@ -2473,27 +2472,23 @@ strong {
 }
 .keel-dock {
   position: relative;
-  width: 104px;
-  height: 104px;
+  width: 140px;
+  height: 140px;
   cursor: grab;
   border-radius: 50%;
-  background: var(--surface);
-  border: 1px solid #c9dcf3;
-  box-shadow: 0 14px 30px -14px rgba(24, 52, 70, 0.55);
+  background: none;
+  border: 0;
+  box-shadow: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition:
-    transform 0.18s ease,
-    box-shadow 0.18s ease,
-    border-color 0.18s ease;
+  transition: transform 0.18s ease;
 }
-.keel-dock:hover {
-  transform: translateY(-2px);
+.keel-dock:hover .mascot {
+  scale: 1.05;
 }
-.keel-dock.is-drop-target {
-  border: 2px dashed var(--harbor);
-  transform: scale(1.06);
+.keel-dock.is-drop-target .mascot {
+  scale: 1.1;
 }
 .keel-dock.is-drag-over {
   background: var(--harbor-wash);
@@ -4043,33 +4038,7 @@ strong {
 /* ── Keel buddy ─────────────────────────────────────────────────────────────
    The companion is one object now: a bubble it speaks through, and a query box
    that opens underneath it. Both travel with the buddy when it is dragged. */
-.keel-bubble {
-  max-width: min(300px, calc(100vw - 48px));
-  padding: 12px 15px;
-  background: var(--surface);
-  border: 1px solid #c9dcf3;
-  border-radius: 14px 14px 4px 14px;
-  box-shadow: 0 14px 30px -18px rgba(24, 52, 70, 0.5);
-  position: relative;
-}
-.keel-bubble p {
-  font-size: 13px;
-  line-height: 1.55;
-  color: #2b4a5e;
-}
 /* The tail sits on the bubble's lower-right, pointing down at the mascot. */
-.keel-bubble::after {
-  content: "";
-  position: absolute;
-  right: 22px;
-  bottom: -7px;
-  width: 12px;
-  height: 12px;
-  background: var(--surface);
-  border-right: 1px solid #c9dcf3;
-  border-bottom: 1px solid #c9dcf3;
-  transform: rotate(45deg);
-}
 /* The query box sits beneath the buddy, and flips above it when the buddy is
    close enough to the bottom edge that "beneath" would run off screen. */
 .keel-overlay .keel-panel {
@@ -4086,4 +4055,177 @@ strong {
   .keel-dock {
     transition: none;
   }
+}
+
+/* ── Buddy: idle life, pixel bubble, and parking out of the way ─────────────*/
+
+/* The same two idles as the welcome page: a slow float and a wagging fin. */
+.keel-dock .mascot {
+  animation: keel-float 3.4s ease-in-out infinite;
+  transition: scale 0.18s ease;
+}
+.keel-dock .mascot .fin-right {
+  transform-origin: 123px 90px;
+  animation: wave 0.9s ease-in-out infinite;
+}
+@keyframes keel-float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -9px;
+  }
+}
+
+/* Speech bubble: a stepped, pixel-drawn border made of box-shadow offsets
+   rather than a smooth radius, so the buddy reads as a character in a game
+   rather than a chat widget. Palette stays ours: ocean ink, not pure black. */
+/* Stepped tail on the bubble's bottom-right, pointing down at the mascot. */
+/* Flipped (box above the buddy) puts the bubble under it, so the tail goes up. */
+
+/* An asset drag parks the buddy bottom-left so neither the drop target nor the
+   box that opens under it is clipped by the right edge. The percentage in
+   `translate` resolves against the buddy's own width, so no JS measurement. */
+.keel-overlay {
+
+}
+.keel-overlay.is-moving {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .keel-dock .mascot,
+  .keel-dock .mascot .fin-right {
+    animation: none;
+  }
+  .keel-overlay {
+    transition: none;
+  }
+}
+.motion-paused .keel-dock .mascot,
+.motion-paused .keel-dock .mascot .fin-right {
+  animation: none !important;
+}
+
+/* The launch CTA matches the DASHBOARD button's weight and scale, and idles
+   with the same charge the rocket has — the whole button breathes and shakes,
+   speeding up together with it on hover. */
+.button.rocket-button {
+  height: 74px;
+  padding: 0 34px;
+  gap: 16px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  line-height: 1;
+  border-radius: 16px;
+  box-shadow: 0 7px 0 var(--ink);
+  /* `scale`/`translate` are separate properties from `transform`, so the
+     press-down on hover/active still works alongside this. */
+  animation: cta-charge 0.9s ease-in-out infinite;
+}
+.button.rocket-button:hover:not(:disabled) {
+  animation-duration: 0.26s;
+  box-shadow: 0 4px 0 var(--ink);
+}
+.button.rocket-button:active:not(:disabled) {
+  box-shadow: 0 2px 0 var(--ink);
+}
+.button.rocket-button.is-launching {
+  animation: none;
+}
+@keyframes cta-charge {
+  0%,
+  100% {
+    scale: 1;
+    translate: 0 0;
+  }
+  25% {
+    scale: 1.012;
+    translate: 0.7px -0.5px;
+  }
+  50% {
+    scale: 1.022;
+    translate: -0.6px 0.6px;
+  }
+  75% {
+    scale: 1.012;
+    translate: 0.5px 0.4px;
+  }
+}
+.rocket-button .rocket-svg {
+  width: 30px;
+  height: 32px;
+}
+.rocket-button .rocket-slot {
+  width: 30px;
+  height: 32px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .button.rocket-button {
+    animation: none;
+  }
+}
+.motion-paused .button.rocket-button {
+  animation: none !important;
+}
+
+/* ── Buddy bubble and window ────────────────────────────────────────────────
+   Two states. Idle: a small tip that grows leftward out of the mascot, with a
+   tail on its right edge pointing back at him. Active (chat, a drag, or text
+   waiting to be explained): the reply moves to the top of a window with the
+   input beneath it, and the buddy returns to the bottom-right corner. */
+.keel-bubble {
+  position: absolute;
+  right: 150px;
+  bottom: 40px;
+  /* Grows leftward from the mascot rather than wrapping to a fixed column. */
+  width: max-content;
+  max-width: min(300px, calc(100vw - 160px));
+  padding: 11px 14px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid #c9dcf3;
+  border-radius: 14px;
+  box-shadow: 0 14px 30px -18px rgba(24, 52, 70, 0.5);
+}
+.keel-bubble p {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #2b4a5e;
+}
+/* Tail on the right edge, aimed at the mascot. */
+.keel-bubble::after {
+  content: "";
+  position: absolute;
+  right: -6px;
+  bottom: 16px;
+  width: 11px;
+  height: 11px;
+  background: var(--surface);
+  border-right: 1px solid #c9dcf3;
+  border-top: 1px solid #c9dcf3;
+  transform: rotate(45deg);
+}
+
+/* Home is applied through the inline --kx/--ky the drag already uses, so the
+   class is only a hook for anything that wants to style the active state. */
+/* Reply on top, input underneath — the window reads top to bottom. */
+.keel-overlay .keel-panel {
+  order: 0;
+}
+.keel-overlay.is-flipped .keel-panel {
+  order: 0;
+}
+
+/* Selected text is what Keel explains, so it is highlighted in his own blue
+   rather than the browser default. */
+::selection {
+  background: #bcd9f7;
+  color: var(--ink);
+}
+::-moz-selection {
+  background: #bcd9f7;
+  color: var(--ink);
 }

@@ -16,25 +16,48 @@ export function KeelOverlay() {
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
-  const [hintFor, setHintFor] = useState<string | null>(null);
+  const [dismissed, setDismissed] = useState<{ id: string | null; stage: number }>({ id: null, stage: 0 });
   const [flip, setFlip] = useState(false);
+  // Anything that needs the input window sends the buddy back to its corner:
+  // opened chat, an asset being dragged, or text waiting to be explained.
+  const active = keel.open || keel.dragging;
   const drag = useRef({ px: 0, py: 0, ox: 0, oy: 0, moved: false, active: false });
-  const pos = dragPos ?? keel.pos;
+  // Pointer events can land in one React batch, so pointerup would read a
+  // stale `dragPos` and persist the pre-drag position. The ref always holds
+  // the offset actually rendered.
+  const latest = useRef({ x: 0, y: 0 });
+  // Pressing the buddy collapses the page selection before the click fires, so
+  // the text has to be grabbed on pointerdown while it still exists.
+  const grabbed = useRef("");
+  // A live pointer drag always wins; otherwise anything that needs the input
+  // window pulls the buddy home to the corner. Driving this through the same
+  // inline custom properties as the drag keeps one source of truth for the
+  // position — and the transition on `translate` animates the trip home.
+  const pos = dragPos ?? (active ? { x: 0, y: 0 } : keel.pos);
 
   // Keep the buddy on screen when the window changes size, or one dragged to
   // an edge becomes unreachable.
+  // The buddy always rests bottom-right at a 20px inset, so its untranslated
+  // origin follows from the viewport and its own size — no need to back the
+  // current translate out of a rect that already includes it.
   const clamp = useCallback((p: { x: number; y: number }) => {
     const el = rootRef.current;
     if (!el) return p;
-    const r = el.getBoundingClientRect();
-    const maxX = Math.max(0, window.innerWidth - 28 - (r.right - r.left) - (r.left - p.x));
+    const { width, height } = el.getBoundingClientRect();
+    const restLeft = window.innerWidth - 20 - width;
+    const restTop = window.innerHeight - 20 - height;
     return {
-      x: Math.min(Math.max(p.x, -(r.left - p.x) + 12), maxX),
-      y: Math.min(Math.max(p.y, -(r.top - p.y) + 12), window.innerHeight - 28 - (r.bottom - p.y)),
+      x: Math.min(Math.max(p.x, -(restLeft - 12)), 0),
+      y: Math.min(Math.max(p.y, -(restTop - 12)), 0),
     };
   }, []);
   useEffect(() => {
-    const onResize = () => keel.setPos(clamp(keel.pos));
+    const onResize = () => {
+      const next = clamp(keel.pos);
+      // Only write when the clamp actually moved it, or a stray resize would
+      // rewrite the stored position on every event.
+      if (next.x !== keel.pos.x || next.y !== keel.pos.y) keel.setPos(next);
+    };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, [clamp, keel]);
@@ -58,22 +81,31 @@ export function KeelOverlay() {
     // controls inside the query box are off limits. The 3px threshold below is
     // what keeps a press on the mascot working as a click.
     if ((e.target as HTMLElement).closest(".keel-panel")) return;
+    grabbed.current = (window.getSelection()?.toString().trim() ?? "").slice(0, 300);
     drag.current = { px: e.clientX, py: e.clientY, ox: pos.x, oy: pos.y, moved: false, active: true };
-    rootRef.current?.setPointerCapture(e.pointerId);
   }
   function onPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
     if (!drag.current.active) return;
     const dx = e.clientX - drag.current.px;
     const dy = e.clientY - drag.current.py;
     if (!drag.current.moved && Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
-    drag.current.moved = true;
-    setDragPos({ x: drag.current.ox + dx, y: drag.current.oy + dy });
+    if (!drag.current.moved) {
+      // Capture here, not on pointerdown: capturing early steals the click.
+      drag.current.moved = true;
+      rootRef.current?.setPointerCapture(e.pointerId);
+    }
+    const next = { x: drag.current.ox + dx, y: drag.current.oy + dy };
+    latest.current = next;
+    setDragPos(next);
   }
   function endDrag(e: ReactPointerEvent<HTMLDivElement>) {
     if (!drag.current.active) return;
     drag.current.active = false;
-    rootRef.current?.releasePointerCapture(e.pointerId);
-    if (drag.current.moved && dragPos) keel.setPos(clamp(dragPos));
+    if (drag.current.moved) {
+      if (rootRef.current?.hasPointerCapture(e.pointerId))
+        rootRef.current.releasePointerCapture(e.pointerId);
+      keel.setPos(clamp(latest.current));
+    }
     setDragPos(null);
   }
 
@@ -83,18 +115,27 @@ export function KeelOverlay() {
   useEffect(() => {
     const onDown = (e: PointerEvent) => {
       if (rootRef.current?.contains(e.target as Node)) return;
-      setHintFor(currentReplyId);
+      setDismissed((d) =>
+        d.id === currentReplyId
+          ? { id: currentReplyId, stage: Math.min(d.stage + 1, 2) }
+          : { id: currentReplyId, stage: 1 },
+      );
     };
     document.addEventListener("pointerdown", onDown);
     return () => document.removeEventListener("pointerdown", onDown);
   }, [currentReplyId]);
 
-  const hint = hintFor !== null && hintFor === currentReplyId;
+  // A fresh reply resets the walk, so Keel speaks up again when he has news.
+  const stage = dismissed.id === currentReplyId ? dismissed.stage : 0;
+  const hint = stage === 1;
+  const bubbleHidden = stage >= 2;
 
   function pressBuddy() {
     if (drag.current.moved) return;
-    if (keel.selection) {
-      void keel.ask("What does this mean?", keel.selection);
+    const note = grabbed.current || keel.selection;
+    if (note) {
+      grabbed.current = "";
+      void keel.ask("What does this mean?", note);
       return;
     }
     keel.toggle();
@@ -160,8 +201,10 @@ export function KeelOverlay() {
   return (
     <div
       ref={rootRef}
-      className={`keel-overlay ${keel.paused ? "motion-paused" : ""} ${dragPos ? "is-moving" : ""} ${flip ? "is-flipped" : ""}`}
-      style={{ "--kx": `${pos.x}px`, "--ky": `${pos.y}px` } as React.CSSProperties}
+      className={`keel-overlay ${keel.paused ? "motion-paused" : ""} ${dragPos ? "is-moving" : ""} ${flip ? "is-flipped" : ""} ${active ? "is-home" : ""}`}
+      // `transform`, not the standalone `translate` property: the latter had no
+      // visual effect on this element in Chrome, while transform animates fine.
+      style={{ transform: `translate(${pos.x}px, ${pos.y}px)` }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
@@ -184,15 +227,6 @@ export function KeelOverlay() {
               <strong>Keel</strong>
               <small>{keel.demo ? "Example mode" : "Your investing companion"}</small>
             </div>
-            <button
-              type="button"
-              className="icon-button"
-              aria-pressed={keel.paused}
-              aria-label={keel.paused ? "Resume motion" : "Pause motion"}
-              onClick={() => keel.setPaused(!keel.paused)}
-            >
-              <Icon name={keel.paused ? "play" : "pause"} size={16} />
-            </button>
             <button
               type="button"
               className="icon-button"
@@ -334,7 +368,7 @@ export function KeelOverlay() {
           </form>
         </section>
       )}
-      {!keel.open && (
+      {!keel.open && !bubbleHidden && (
         <div className="keel-bubble" role="status" aria-live="polite">
           <p>
             {keel.busy
@@ -359,7 +393,7 @@ export function KeelOverlay() {
         onDragLeave={onDragLeave}
         onDrop={onDrop}
       >
-        <KeelMascot size={84} mood={mood} paused={keel.paused} />
+        <KeelMascot size={118} mood={mood} paused={keel.paused} />
         {keel.attached.length > 0 && <span className="keel-badge">{keel.attached.length}</span>}
         {keel.unread && !keel.open && <span className="keel-unread" aria-hidden="true" />}
         <span className="keel-dock-hint" aria-hidden="true">

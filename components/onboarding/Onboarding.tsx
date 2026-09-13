@@ -416,7 +416,7 @@ export function Onboarding() {
                   setStep(0);
                 }}
               >
-                Get started
+                GET STARTED
               </RocketButton>
             </div>
             <div className="welcome-foot">
