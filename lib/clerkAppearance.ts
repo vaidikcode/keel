@@ -25,6 +25,9 @@ export const keelAppearance = {
     formButtonPrimary: "keel-auth-cta",
     formFieldInput: "keel-auth-input",
     socialButtonsBlockButton: "keel-auth-social",
+    // Keep the broken Google OAuth flow unavailable on sign-in and sign-up.
+    socialButtonsBlockButton__google: { display: "none" },
+    socialButtonsIconButton__google: { display: "none" },
     footerActionLink: "keel-auth-link",
     logoBox: "keel-auth-hidden",
   },
