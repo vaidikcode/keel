@@ -11,6 +11,7 @@ export function useCategoryData(categoryId: string, sessionId: string | null, re
   const [error, setError] = useState("");
   const [nonce, setNonce] = useState(0);
   const controller = useRef<AbortController | null>(null);
+  const forceNext = useRef(false);
   const key = `${sessionId}:${revision}:${categoryId}`;
 
   useEffect(() => {
@@ -24,13 +25,16 @@ export function useCategoryData(categoryId: string, sessionId: string | null, re
     }
     controller.current?.abort();
     const ac = new AbortController();
+    let recheck: ReturnType<typeof setTimeout> | undefined;
+    const force = forceNext.current;
+    forceNext.current = false;
     controller.current = ac;
     setStatus("loading");
     setError("");
     fetch("/api/category", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId, categoryId, force: nonce > 0 }),
+      body: JSON.stringify({ sessionId, categoryId, force }),
       signal: ac.signal,
     })
       .then(async (response) => {
@@ -41,6 +45,15 @@ export function useCategoryData(categoryId: string, sessionId: string | null, re
         if (!ac.signal.aborted) {
           setData(parsed);
           setStatus("ready");
+          // A stale response starts a server-side refresh. Recheck without
+          // forcing another refresh so the new market data and ranking appear
+          // as soon as that background work finishes.
+          if (parsed.refreshing) {
+            recheck = setTimeout(
+              () => setNonce((current) => current + 1),
+              4_000,
+            );
+          }
         }
       })
       .catch((e) => {
@@ -48,10 +61,16 @@ export function useCategoryData(categoryId: string, sessionId: string | null, re
         setError(e instanceof Error ? e.message : "We couldn't load this category.");
         setStatus("error");
       });
-    return () => ac.abort();
+    return () => {
+      ac.abort();
+      if (recheck) clearTimeout(recheck);
+    };
   }, [categoryId, key, nonce, sessionId]);
 
-  const refresh = useCallback(() => setNonce((n) => n + 1), []);
+  const refresh = useCallback(() => {
+    forceNext.current = true;
+    setNonce((current) => current + 1);
+  }, []);
   const setThoughts = useCallback(
     (thoughts: CategoryResponse["thoughts"]) => {
       setData((d) => {
