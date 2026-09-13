@@ -31,7 +31,7 @@ export function RefreshControl() {
     <span className={`refresh-control ${busy ? "is-busy" : ""} ${stale ? "is-stale" : ""}`}>
       <button
         type="button"
-        className="refresh-button"
+        className="button primary analyze-tab-trigger refresh-button"
         onClick={refreshAllCategories}
         disabled={busy}
         aria-label={tip}

@@ -6,7 +6,6 @@ import { AppShell } from "@/components/app/AppShell";
 import { Icon } from "@/components/ui/Icon";
 import { KeelMascot } from "@/components/dashboard/KeelMascot";
 import { useKeel } from "@/components/keel/KeelContext";
-import { ProfileScore } from "./ProfileScore";
 import { QuestionsForm } from "./QuestionsForm";
 
 type Tab = "questions" | "account";
@@ -67,10 +66,7 @@ export function AccountPage() {
       {tab === "questions" ? (
         <div id="panel-questions" role="tabpanel" aria-labelledby="tab-questions" className="account-panel">
           {keel.profile ? (
-            <>
-              <ProfileScore profile={keel.profile} />
-              <QuestionsForm profile={keel.profile} />
-            </>
+            <QuestionsForm profile={keel.profile} />
           ) : (
             <div className="empty-state">
               <KeelMascot mood="question" size={90} />

@@ -227,7 +227,7 @@ strong {
   color: var(--harbor);
 }
 .fine-print {
-  font-size: 11px;
+  font-size: 12.5px;
   line-height: 1.6;
   color: var(--muted);
 }
@@ -1670,16 +1670,6 @@ strong {
   flex-shrink: 0;
   opacity: 0.85;
 }
-.nav-yours {
-  margin-left: auto;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--sea-glass);
-}
-.app-sidebar nav a[aria-current="page"] .nav-yours {
-  background: #bcdccc;
-}
 .sidebar-meta {
   margin-top: auto;
   display: flex;
@@ -1980,7 +1970,6 @@ strong {
 .ranked-card.is-expanded .ranked-details {
   opacity: 1;
   transform: none;
-  pointer-events: auto;
 }
 .ranked-details dl {
   display: grid;
@@ -2037,7 +2026,6 @@ strong {
   .ranked-card.is-expanded .ranked-details,
   .ranked-card:focus-within .ranked-details {
     opacity: 1;
-    pointer-events: auto;
   }
 }
 @media (min-width: 1400px) {
@@ -4484,6 +4472,7 @@ strong {
   font-size: 13px;
   line-height: 1.5;
   color: #2b4a5e;
+  white-space: pre-line;
 }
 /* Tail on the right edge, aimed at the mascot. */
 .keel-bubble::after {
@@ -4558,14 +4547,14 @@ strong {
    `.ranked-row` on a category page is a compact grid and keeps its own size. */
 .carousel-track .ranked-card {
   flex: 0 0 320px;
-  height: 400px;
+  height: 440px;
   transform: perspective(1100px) rotateY(var(--tilt, 0deg));
 }
 .carousel-track .ranked-card:hover,
 .carousel-track .ranked-card:focus-within,
 .carousel-track .ranked-card.is-expanded {
-  /* Wider, not scaled — the card makes room for the metrics. */
-  flex-basis: 500px;
+  /* Wider, not scaled — scaling would blur the type it exists to reveal. */
+  flex-basis: 600px;
   transform: perspective(1100px) rotateY(0deg);
   z-index: 3;
 }
@@ -4580,8 +4569,8 @@ strong {
 /* Rises to just below the ticker and name, the way the reference's caption
    stops short of the top of its card. */
 .carousel-track .ranked-details {
-  height: calc(100% - 104px);
-  padding: 16px 22px 18px;
+  height: calc(100% - 96px);
+  padding: 18px 24px 18px;
 }
 .carousel-track .ranked-card-main .sparkline {
   flex: 1 1 auto;
@@ -4621,7 +4610,6 @@ strong {
 .ranked-card:focus-within .ranked-details,
 .ranked-card.is-expanded .ranked-details {
   transform: translateY(0);
-  pointer-events: auto;
 }
 /* The supporting copy arrives after the panel, the way the reference does. */
 .ranked-details .one-liner,
@@ -4896,26 +4884,18 @@ strong {
 /* Stated once per page, in the one place a warning belongs. Coral is already
    the negative role in the palette, so this borrows it rather than inventing
    a colour. */
-.disclaimer-banner {
-  margin: 0 0 4px;
-  padding: 11px 16px;
-  border-radius: 12px;
-  background: #fdf1ef;
-  border: 1px solid #f0cfc8;
-  color: #7d3d31;
-  font-size: 12.5px;
-  line-height: 1.55;
-}
-.disclaimer-banner strong {
-  font-weight: 600;
-  color: #6d3227;
+.lead-note {
+  color: var(--muted);
 }
 
 .kind-lead {
-  font-size: 15px;
+  font-size: 13px;
   line-height: 1.6;
   color: var(--muted);
-  max-width: 60ch;
+  /* Full width of the column: same left edge as everything else on the page,
+     and the container's own right padding is margin enough — a 60ch cap left
+     a wide dead gap on wider screens. */
+  max-width: 100%;
   margin: 0 0 6px;
 }
 
@@ -4924,24 +4904,24 @@ strong {
   .carousel-track .ranked-card,
   .carousel-track .trend-card {
     flex-basis: 260px;
-    height: 360px;
+    height: 390px;
   }
   .carousel-track .ranked-card:hover,
   .carousel-track .ranked-card:focus-within,
   .carousel-track .ranked-card.is-expanded {
-    flex-basis: 400px;
+    flex-basis: 480px;
   }
 }
 @media (min-width: 768px) and (max-width: 991px) {
   .carousel-track .ranked-card,
   .carousel-track .trend-card {
     flex-basis: 240px;
-    height: 330px;
+    height: 360px;
   }
   .carousel-track .ranked-card:hover,
   .carousel-track .ranked-card:focus-within,
   .carousel-track .ranked-card.is-expanded {
-    flex-basis: 360px;
+    flex-basis: 420px;
   }
   .section-head h2 {
     font-size: 26px;
@@ -4950,13 +4930,13 @@ strong {
 @media (max-width: 767px) {
   .carousel-track .ranked-card,
   .carousel-track .trend-card {
-    flex-basis: 200px;
-    height: 280px;
+    flex-basis: 210px;
+    height: 320px;
   }
   .carousel-track .ranked-card:hover,
   .carousel-track .ranked-card:focus-within,
   .carousel-track .ranked-card.is-expanded {
-    flex-basis: 270px;
+    flex-basis: 310px;
   }
   .carousel-track .ranked-card-main {
     padding: 14px 15px 12px;
@@ -4974,18 +4954,17 @@ strong {
    explicit `.is-expanded` state opens the panel. */
 @media (hover: none) {
   .ranked-card:hover {
-    flex-basis: 236px;
+    flex-basis: 320px;
   }
   .ranked-card:hover .ranked-details {
     transform: translateY(101%);
     pointer-events: none;
   }
   .ranked-card.is-expanded {
-    flex-basis: 348px;
+    flex-basis: 600px;
   }
   .ranked-card.is-expanded .ranked-details {
     transform: translateY(0);
-    pointer-events: auto;
   }
   .ranked-card:hover .one-liner,
   .ranked-card:hover .ranked-actions {
@@ -5037,38 +5016,14 @@ strong {
   position: relative;
   display: inline-flex;
 }
-.refresh-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--muted);
-  cursor: pointer;
-  transition:
-    color 0.18s var(--ease-expo-out),
-    border-color 0.18s var(--ease-expo-out),
-    background 0.18s var(--ease-expo-out);
-}
-.refresh-button:hover:not(:disabled) {
-  color: var(--harbor-deep);
-  border-color: var(--harbor);
-  background: var(--harbor-wash);
-}
-.refresh-button:focus-visible {
-  outline: 2px solid var(--harbor);
-  outline-offset: 2px;
-}
+/* The box, fill, border and press come from .button.primary.analyze-tab-trigger
+   — the same brutalist button used for "Analyze another tab" — just with an
+   icon standing in for a label, and no sheen layered on top. */
 .refresh-control.is-stale .refresh-button {
-  color: var(--amber);
-  border-color: #e4d3b4;
+  background: var(--amber);
 }
 .refresh-control.is-busy .refresh-button {
   cursor: default;
-  color: var(--harbor);
 }
 .refresh-control.is-busy .refresh-button svg {
   animation: refresh-spin 0.9s linear infinite;
@@ -5297,43 +5252,6 @@ strong {
   gap: 26px;
   max-width: 78ch;
 }
-.score-readout {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.score-readout strong {
-  font-family: var(--font-lateral);
-  font-weight: 700;
-  font-size: 52px;
-  line-height: 1;
-  color: var(--ink);
-}
-.score-readout span {
-  font-size: 13px;
-  color: var(--muted);
-}
-.score-reasons {
-  list-style: none;
-  margin: 14px 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  font-size: 13px;
-  color: var(--muted);
-}
-.score-reasons li {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-.score-reasons span {
-  min-width: 34px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
 .account-field {
   margin: 0;
   padding: 0;
@@ -5462,4 +5380,103 @@ img.tiny-avatar {
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   color: var(--muted);
+}
+
+/* ── Ranked card ────────────────────────────────────────────────────────────
+   The card face is one stretched link, so a click anywhere that isn't a
+   control opens the asset — and middle-click, open-in-new-tab and the status
+   bar URL all keep working, which a scripted navigation would throw away. */
+.ranked-card-main::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.carousel-track .ranked-card {
+  cursor: pointer;
+}
+/* The panel is a readout; only its controls take the pointer, so a click on
+   the figures falls through to the link beneath. Written at the same
+   specificity as the open-state rules, which would otherwise outrank it. */
+.ranked-card:hover .ranked-details,
+.ranked-card:focus-within .ranked-details,
+.ranked-card.is-expanded .ranked-details,
+.ranked-details {
+  pointer-events: none;
+}
+.ranked-details .ranked-actions,
+.ranked-details .card-metrics {
+  pointer-events: auto;
+}
+
+/* Five figures, each one pressable so Keel can explain it in plain words. */
+.card-metrics {
+  display: block;
+  margin: 0 0 2px;
+}
+.card-metrics > div {
+  border-bottom: 1px dashed var(--line);
+}
+.card-metrics > div:last-child {
+  border-bottom: 0;
+}
+.metric-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 7px 6px 7px 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: help;
+  border-radius: 6px;
+  transition: background 0.18s var(--ease-expo-out);
+}
+.metric-row:hover {
+  background: var(--harbor-wash);
+  padding-left: 6px;
+}
+.metric-row:focus-visible {
+  outline: 2px solid var(--harbor);
+  outline-offset: -2px;
+}
+.metric-row dt {
+  font-family: var(--font-lateral);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.metric-row dd {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--ink);
+}
+.ranked-details .one-liner {
+  margin-top: 4px;
+}
+
+/* The card face grows with the card. */
+.carousel-track .ranked-card-main .ticker {
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.carousel-track .ranked-card-main .name {
+  font-size: 13px;
+}
+
+@media (max-width: 991px) {
+  .metric-row dt {
+    font-size: 13px;
+  }
+  .metric-row dd {
+    font-size: 15px;
+  }
 }

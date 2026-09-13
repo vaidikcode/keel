@@ -1,6 +1,6 @@
 import type { ConvexHttpClient } from "convex/browser";
 import { api } from "../../convex/_generated/api";
-import { fetchCompanyProfile } from "../dashboard/sources/finnhub";
+import { fetchBasicFinancials, fetchCompanyProfile } from "../dashboard/sources/finnhub";
 import { pLimit } from "../http/fetchJson";
 import { BENCHMARK, CATEGORY_BY_ID, historySourceFor, type CategoryId } from "./categories";
 import { cachedTavily } from "./kvCache";
@@ -53,12 +53,19 @@ export async function refreshCategory(
   if (!benchmark.length) warnings.push("benchmark:missing");
 
   const stocks = category.assets.filter((a) => a.kind === "stocks");
-  const profiles = new Map(
-    (
-      await pLimit(stocks, 6, async (a) => [a.id, await fetchCompanyProfile(a.ticker)] as const)
-    ).filter(([, p]) => p !== null),
+  // Both Finnhub calls for a symbol ride in the same task, so concurrency stays
+  // at six rather than doubling. Funds are never asked: most ETFs answer the
+  // financials endpoint with an empty object, and it would burn the budget.
+  const company = await pLimit(
+    stocks,
+    6,
+    async (a) =>
+      [a.id, await fetchCompanyProfile(a.ticker), await fetchBasicFinancials(a.ticker)] as const,
   );
+  const profiles = new Map(company.filter(([, p]) => p !== null).map(([id, p]) => [id, p]));
+  const financials = new Map(company.filter(([, , f]) => f !== null).map(([id, , f]) => [id, f]));
   if (stocks.length && !profiles.size) warnings.push("finnhub:off");
+  if (stocks.length && !financials.size) warnings.push("finnhub:metrics-off");
 
   const assets: SnapshotAsset[] = category.assets.map((a) => {
     const history = series.get(a.yahooSymbol.toUpperCase()) ?? [];
@@ -87,6 +94,10 @@ export async function refreshCategory(
         rank: coin?.rank ?? null,
       },
       risk,
+      // Spread conditionally: the validator is `v.optional()`, which accepts an
+      // absent key but rejects an explicit undefined.
+      ...(financials.get(a.id) ? { financials: { ...financials.get(a.id)!, asOf: Date.now() } } : {}),
+      ...(coin ? { coinStats: { ...coin.stats, asOf: Date.now() } } : {}),
     };
   });
   if (!assets.some((a) => a.history.length)) throw new Error("No price history came back.");

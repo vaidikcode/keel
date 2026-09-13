@@ -3,6 +3,7 @@ import { CATEGORY_BY_ID, type CategoryId } from "./categories";
 import { capacityFor, fitFor, rankByFit, type Capacity } from "./fit";
 import type { CategorySnapshot, RankedAsset, TrendingItem } from "./snapshotModel";
 import { sparkline } from "./snapshotModel";
+import { priceIndicators } from "./indicators";
 
 export function rankSnapshot(
   snapshot: CategorySnapshot,
@@ -39,6 +40,19 @@ export function rankSnapshot(
     fit: row.fit,
     rank: index + 1,
     oneLiner: description(row.asset.id),
+    historySource: row.asset.historySource,
+    // Indicators have to be computed here, against the stored history. `spark`
+    // is 60 points spread across a year, so consecutive values sit about six
+    // trading days apart — a 50-day average cannot be recovered from it, and a
+    // 14-period RSI over it would silently be an 84-day one.
+    metrics: {
+      ...priceIndicators(row.asset.history.map((p) => p.value)),
+      marketCapUsd: row.asset.fundamentals.marketCapUsd,
+      industry: row.asset.fundamentals.industry,
+      coinRank: row.asset.fundamentals.rank,
+      financials: row.asset.financials ?? null,
+      coinStats: row.asset.coinStats ?? null,
+    },
   }));
   return { assets, capacity };
 }

@@ -8,6 +8,18 @@ export type CoinMarket = {
   change24hPct: number | null;
   change30dPct: number | null;
   change1yPct: number | null;
+  /** Already in this response; keeping it costs no extra request. */
+  stats: {
+    volume24hUsd: number | null;
+    circulatingSupply: number | null;
+    totalSupply: number | null;
+    maxSupply: number | null;
+    fullyDilutedValuationUsd: number | null;
+    ath: number | null;
+    athChangePct: number | null;
+    atl: number | null;
+    atlChangePct: number | null;
+  };
 };
 
 function num(value: unknown): number | null {
@@ -27,6 +39,17 @@ export function parseCoinMarkets(body: unknown): Map<string, CoinMarket> {
       change24hPct: num(row.price_change_percentage_24h_in_currency ?? row.price_change_percentage_24h),
       change30dPct: num(row.price_change_percentage_30d_in_currency),
       change1yPct: num(row.price_change_percentage_1y_in_currency),
+      stats: {
+        volume24hUsd: num(row.total_volume),
+        circulatingSupply: num(row.circulating_supply),
+        totalSupply: num(row.total_supply),
+        maxSupply: num(row.max_supply),
+        fullyDilutedValuationUsd: num(row.fully_diluted_valuation),
+        ath: num(row.ath),
+        athChangePct: num(row.ath_change_percentage),
+        atl: num(row.atl),
+        atlChangePct: num(row.atl_change_percentage),
+      },
     });
   }
   return out;

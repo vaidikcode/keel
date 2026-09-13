@@ -19,7 +19,7 @@ import type { RankedAsset } from "./snapshotModel";
 const WEIGHTS = { size: 0.35, tenure: 0.2, oneYear: 0.25, steadiness: 0.2 };
 
 /** Position of each value within the set, 0 (lowest) to 1 (highest). */
-function percentiles(values: (number | null)[]): number[] {
+export function percentiles(values: (number | null)[]): number[] {
   const known = values.filter((v): v is number => v !== null).sort((a, b) => a - b);
   if (known.length < 2) return values.map(() => 0.5);
   return values.map((v) => {

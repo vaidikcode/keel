@@ -96,7 +96,9 @@ export function CategoryDashboard({ categoryId }: { categoryId: CategoryId }) {
         </div>
       </header>
 
-      <Disclaimer />
+      <p className="kind-lead">
+        <Disclaimer />
+      </p>
 
       <RecentlyAnalyzed />
 

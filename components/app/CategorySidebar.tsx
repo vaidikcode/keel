@@ -3,8 +3,6 @@ import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
 import { Icon } from "@/components/ui/Icon";
 import { CATEGORIES, type CategoryId } from "@/lib/market/categories";
-import { capacityFor } from "@/lib/market/fit";
-import { selectCategories } from "@/lib/market/select";
 import {
   NAV_ICON,
   NAV_LABEL,
@@ -38,10 +36,6 @@ export function CategorySidebar({
 }) {
   const keel = useKeel();
   const { user } = useUser();
-  // The seven categories still drive personalisation; they just surface as a
-  // dot on the asset class that holds the ones chosen for this person.
-  const yours = keel.profile ? selectCategories(keel.profile, capacityFor(keel.profile)) : [];
-  const yourKinds = new Set(yours.map(viewForCategory));
   const activeView: string | null =
     activeId && CATEGORIES.some((c) => c.id === activeId)
       ? viewForCategory(activeId as CategoryId)
@@ -62,7 +56,6 @@ export function CategorySidebar({
               >
                 <Icon name={NAV_ICON[view]} size={18} />
                 <span>{NAV_LABEL[view]}</span>
-                {yourKinds.has(view as never) && <i className="nav-yours" aria-label="Chosen for you" />}
               </Link>
             </li>
           ))}

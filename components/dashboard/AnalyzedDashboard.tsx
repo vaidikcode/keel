@@ -53,7 +53,9 @@ export function AnalyzedDashboard({ id }: { id: string }) {
         </div>
       </header>
 
-      <Disclaimer />
+      <p className="kind-lead">
+        <Disclaimer />
+      </p>
 
       <section className="analyzed-page" aria-labelledby="analyzed-heading">
         <div className="analyzed-identity">

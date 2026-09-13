@@ -34,6 +34,47 @@ export const riskV = v.object({
     observations: v.number(),
   }),
 });
+const numOrNull = v.union(v.number(), v.null());
+
+/**
+ * Provider facts, never derived scores. Kept out of `fundamentals`, which is a
+ * closed object every existing row already writes — one new optional object is
+ * safer than twenty optional scalars inside a hot path.
+ *
+ * Both of these are `v.optional()` at the top level so the deploy still
+ * validates every snapshot already in the table, and every member is optional
+ * too so adding one later does not repeat the problem.
+ */
+export const financialsV = v.object({
+  asOf: v.optional(v.number()),
+  peTtm: v.optional(numOrNull),
+  pbQuarterly: v.optional(numOrNull),
+  psTtm: v.optional(numOrNull),
+  roeTtmPct: v.optional(numOrNull),
+  roaTtmPct: v.optional(numOrNull),
+  grossMarginTtmPct: v.optional(numOrNull),
+  operatingMarginTtmPct: v.optional(numOrNull),
+  netMarginTtmPct: v.optional(numOrNull),
+  currentRatio: v.optional(numOrNull),
+  quickRatio: v.optional(numOrNull),
+  debtToEquity: v.optional(numOrNull),
+  revenueGrowthTtmYoyPct: v.optional(numOrNull),
+  epsGrowthTtmYoyPct: v.optional(numOrNull),
+});
+
+export const coinStatsV = v.object({
+  asOf: v.optional(v.number()),
+  volume24hUsd: v.optional(numOrNull),
+  circulatingSupply: v.optional(numOrNull),
+  totalSupply: v.optional(numOrNull),
+  maxSupply: v.optional(numOrNull),
+  fullyDilutedValuationUsd: v.optional(numOrNull),
+  ath: v.optional(numOrNull),
+  athChangePct: v.optional(numOrNull),
+  atl: v.optional(numOrNull),
+  atlChangePct: v.optional(numOrNull),
+});
+
 export const snapshotAssetV = v.object({
   id: v.string(),
   ticker: v.string(),
@@ -52,6 +93,8 @@ export const snapshotAssetV = v.object({
     rank: v.union(v.number(), v.null()),
   }),
   risk: v.union(riskV, v.null()),
+  financials: v.optional(financialsV),
+  coinStats: v.optional(coinStatsV),
 });
 export const factV = v.object({
   title: v.string(),

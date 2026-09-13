@@ -50,8 +50,9 @@ export function KindDashboard({ kind }: { kind: AssetKind }) {
         </div>
       </header>
 
-      <Disclaimer />
-      <p className="kind-lead">{LEAD[kind]}</p>
+      <p className="kind-lead">
+        {LEAD[kind]} <Disclaimer />
+      </p>
 
       <KindSections key={kind} kind={kind} categoryIds={sections} />
 

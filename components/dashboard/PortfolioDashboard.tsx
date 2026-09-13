@@ -47,8 +47,6 @@ export function PortfolioDashboard() {
         </div>
       </header>
 
-      <Disclaimer />
-
       {saved.length === 0 ? (
         <div className="empty-state">
           <KeelMascot mood="question" size={110} />
@@ -56,6 +54,9 @@ export function PortfolioDashboard() {
           <p>
             Press the bookmark on any card and it will collect here, with how the set sits
             against your answers.
+          </p>
+          <p className="kind-lead">
+            <Disclaimer />
           </p>
           <Link href={keel.withDemo("/dashboard/stocks")} className="button primary">
             Browse stocks
@@ -66,7 +67,8 @@ export function PortfolioDashboard() {
           <p className="kind-lead">
             {saved.length} saved {saved.length === 1 ? "option" : "options"}
             {kinds.size > 1 ? ` across ${kinds.size} asset classes` : ""}. Saving is a
-            shortlist, not a holding — Keel does not track money you have invested.
+            shortlist, not a holding — Keel does not track money you have invested.{" "}
+            <Disclaimer />
           </p>
 
           {capacity && averageRisk !== null && (

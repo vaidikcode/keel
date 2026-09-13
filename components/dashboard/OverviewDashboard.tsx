@@ -55,9 +55,8 @@ export function OverviewDashboard() {
         </div>
       </header>
 
-      <Disclaimer />
       <p className="kind-lead">
-        Everything Keel follows, across stocks, funds and crypto, in one place.
+        Everything Keel follows, across stocks, funds and crypto, in one place. <Disclaimer />
       </p>
 
       <Carousel

@@ -195,3 +195,55 @@ export async function fetchCompanyProfile(
     country: typeof data.country === "string" ? data.country : null,
   };
 }
+
+export type BasicFinancials = Record<string, number | null>;
+
+/**
+ * Finnhub's basic financials, which carry valuation, profitability, balance
+ * sheet and growth figures in one request.
+ *
+ * Each field tries a short list of candidate keys, because Finnhub renames and
+ * omits them between plans. Anything non-finite becomes null rather than being
+ * dropped, so the card can say "not reported" rather than silently omitting a
+ * row. A negative price-to-earnings is not a cheap share — it means the company
+ * lost money — so it is reported as having no value at all.
+ *
+ * Margins and returns already arrive as percentages (roeTTM: 147.25 means
+ * 147.25%), so they must not be multiplied by 100 again.
+ */
+export function parseBasicFinancials(body: unknown): BasicFinancials | null {
+  if (!body || typeof body !== "object") return null;
+  const metric = (body as { metric?: unknown }).metric;
+  if (!metric || typeof metric !== "object") return null;
+  const bag = metric as Record<string, unknown>;
+  const pick = (...keys: string[]): number | null => {
+    for (const key of keys) {
+      const value = bag[key];
+      if (typeof value === "number" && Number.isFinite(value)) return value;
+    }
+    return null;
+  };
+  const pe = pick("peTTM", "peBasicExclExtraTTM", "peNormalizedAnnual");
+  const out: BasicFinancials = {
+    peTtm: pe !== null && pe > 0 ? pe : null,
+    pbQuarterly: pick("pbQuarterly", "pbAnnual"),
+    psTtm: pick("psTTM", "psAnnual"),
+    roeTtmPct: pick("roeTTM", "roeRfy"),
+    roaTtmPct: pick("roaTTM", "roaRfy"),
+    grossMarginTtmPct: pick("grossMarginTTM", "grossMarginAnnual"),
+    operatingMarginTtmPct: pick("operatingMarginTTM", "operatingMarginAnnual"),
+    netMarginTtmPct: pick("netProfitMarginTTM", "netProfitMarginAnnual"),
+    currentRatio: pick("currentRatioQuarterly", "currentRatioAnnual"),
+    quickRatio: pick("quickRatioQuarterly", "quickRatioAnnual"),
+    debtToEquity: pick("totalDebt/totalEquityQuarterly", "totalDebt/totalEquityAnnual"),
+    revenueGrowthTtmYoyPct: pick("revenueGrowthTTMYoy", "revenueGrowthQuarterlyYoy"),
+    epsGrowthTtmYoyPct: pick("epsGrowthTTMYoy", "epsGrowthQuarterlyYoy"),
+  };
+  // An object of nothing but nulls is the provider saying it has no coverage.
+  return Object.values(out).some((v) => v !== null) ? out : null;
+}
+
+export async function fetchBasicFinancials(symbol: string): Promise<BasicFinancials | null> {
+  const data = await finnhubGet<unknown>("/stock/metric", { symbol, metric: "all" });
+  return parseBasicFinancials(data);
+}

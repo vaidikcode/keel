@@ -28,6 +28,10 @@ export type SnapshotAsset = {
     rank: number | null;
   };
   risk: Risk | null;
+  /** Provider facts only, never derived scores. Omitted until a refresh fills
+   *  them — never written as null, which the optional validator would reject. */
+  financials?: Record<string, number | null>;
+  coinStats?: Record<string, number | null>;
 };
 export type CategorySnapshot = {
   fetchedAt: number;
@@ -79,6 +83,31 @@ export const rankedAssetSchema = z.object({
   fit: z.object({ score: z.number(), reasons: z.array(z.string()) }).nullable(),
   rank: z.number(),
   oneLiner: z.string(),
+  /** Where the prices came from, so a card can name its own source. */
+  historySource: z.string().default(""),
+  /**
+   * Raw figures only. Labels, bands and sentences are derived from these by
+   * `lib/market/metrics.ts`, which both the server and the card import — so the
+   * wire stays small and there is one source of truth for the wording.
+   */
+  metrics: z
+    .object({
+      rsi: z.number().nullable(),
+      macdHistNorm: z.number().nullable(),
+      sma50: z.number().nullable(),
+      sma200: z.number().nullable(),
+      percentB: z.number().nullable(),
+      last: z.number().nullable(),
+      marketCapUsd: z.number().nullable(),
+      industry: z.string().nullable(),
+      coinRank: z.number().nullable(),
+      /** Finnhub basic financials. Null when no key, a 403, or a timeout. */
+      financials: z.record(z.string(), z.number().nullable()).nullable(),
+      /** CoinGecko supply and range figures, already on the wire for crypto. */
+      coinStats: z.record(z.string(), z.number().nullable()).nullable(),
+    })
+    .nullable()
+    .default(null),
 });
 export type RankedAsset = z.infer<typeof rankedAssetSchema>;
 
