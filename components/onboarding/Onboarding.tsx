@@ -99,22 +99,25 @@ const TIMESCALES: Choice[] = [
 ];
 
 const RISK_BANDS: Choice[] = [
-  { value: "high", title: "High", description: "invest only 20% of my income" },
+  {
+    value: "high",
+    title: "High",
+    description: "I could stay invested through a temporary drop of about 40% or more.",
+  },
   {
     value: "balanced",
     title: "Balanced",
-    description: "invest only 35% of my income",
+    description: "I could stay invested through a temporary drop of about 20%.",
   },
   {
     value: "low",
     title: "Low",
-    description: "less than 60% money is being invested",
+    description: "I would be uncomfortable after a temporary drop of about 10%.",
   },
   {
     value: "veryLow",
     title: "Very low",
-    description:
-      "I invest almost 100% of my earnings — markets always carry risk, and very low is not zero.",
+    description: "A temporary drop of about 5% would already feel difficult.",
   },
 ];
 
@@ -131,7 +134,7 @@ const CAPTIONS = [
   "How long you plan to stay invested changes what suits you.",
   "This sets the currency used for amounts. Market prices stay in US dollars.",
   "An approximate range is plenty. You can change it whenever you like.",
-  "How much of what you earn are you putting in?",
+  "How large a temporary fall could you sit through without selling?",
 ];
 
 const HELPS = [
