@@ -17,6 +17,7 @@ import { migrateProfile, nextStep, type Profile } from "@/lib/onboarding/questio
 import { sampleProfile } from "@/lib/dashboard/sample";
 import type { KeelAskContext } from "@/lib/dashboard/api";
 import type { AttachedAsset } from "./keelDnd";
+import type { AnalyzedAsset } from "@/lib/dashboard/analyzedAsset";
 
 export type PageContext =
   | { page: "dashboard"; categoryId: string }
@@ -33,6 +34,7 @@ type KeelState = {
   hasProfile: boolean;
   revision: number;
   savedAssets: string[];
+  analyzedAssets: AnalyzedAsset[];
   open: boolean;
   busy: boolean;
   lastReply: KeelReply | null;
@@ -351,6 +353,7 @@ export function KeelProvider({ children }: { children: ReactNode }) {
       hasProfile: demo || Boolean(profileDoc),
       revision,
       savedAssets: demo ? sampleSaved : (profileDoc?.savedAssets ?? []),
+      analyzedAssets: demo ? [] : (profileDoc?.analyzedAssets ?? []),
       open,
       busy,
       lastReply: lastReply ?? (profile ? { text: nextStep(profile), sourceIds: [], id: "intro", action: "none" } : null),

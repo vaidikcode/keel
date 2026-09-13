@@ -274,6 +274,22 @@ export const catalogSourceValidator = v.union(
   v.literal("fallback"),
 );
 
+export const analyzedAssetValidator = v.object({
+  id: v.string(),
+  name: v.string(),
+  ticker: v.string(),
+  exchange: v.string(),
+  platform: v.union(
+    v.literal("Groww"),
+    v.literal("Zerodha"),
+    v.literal("Other"),
+  ),
+  question: v.string(),
+  summary: v.string(),
+  sourceIds: v.array(v.string()),
+  analyzedAt: v.number(),
+});
+
 /** Legacy Feed-vs-Filing pack. Production rows still carry it; never written anymore. */
 const jargonValidator = v.object({ term: v.string(), plain: v.string() });
 const beatsValidator = v.object({
@@ -330,6 +346,7 @@ export const experienceFields = {
   revision: v.optional(v.number()),
   dashboard: v.optional(dashboardValidator),
   savedAssets: v.optional(v.array(v.string())),
+  analyzedAssets: v.optional(v.array(analyzedAssetValidator)),
   conversation: v.optional(v.array(turnValidator)),
   generation: v.optional(
     v.object({
