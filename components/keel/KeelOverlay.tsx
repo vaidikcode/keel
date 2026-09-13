@@ -26,9 +26,6 @@ export function KeelOverlay() {
   // stale `dragPos` and persist the pre-drag position. The ref always holds
   // the offset actually rendered.
   const latest = useRef({ x: 0, y: 0 });
-  // Pressing the buddy collapses the page selection before the click fires, so
-  // the text has to be grabbed on pointerdown while it still exists.
-  const grabbed = useRef("");
   // A live pointer drag always wins; otherwise anything that needs the input
   // window pulls the buddy home to the corner. Driving this through the same
   // inline custom properties as the drag keeps one source of truth for the
@@ -81,7 +78,6 @@ export function KeelOverlay() {
     // controls inside the query box are off limits. The 3px threshold below is
     // what keeps a press on the mascot working as a click.
     if ((e.target as HTMLElement).closest(".keel-panel")) return;
-    grabbed.current = (window.getSelection()?.toString().trim() ?? "").slice(0, 300);
     drag.current = { px: e.clientX, py: e.clientY, ox: pos.x, oy: pos.y, moved: false, active: true };
   }
   function onPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
@@ -109,35 +105,27 @@ export function KeelOverlay() {
     setDragPos(null);
   }
 
-  // Clicking anywhere else swaps the bubble for the "select some text" hint.
-  // Tying it to the reply id means a fresh answer clears the hint by itself.
+  // Clicking anywhere else dismisses the bubble, and closes the window if it
+  // is open. Tying it to the reply id means a fresh answer speaks up again.
   const currentReplyId = keel.lastReply?.id ?? null;
   useEffect(() => {
     const onDown = (e: PointerEvent) => {
       if (rootRef.current?.contains(e.target as Node)) return;
-      setDismissed((d) =>
-        d.id === currentReplyId
-          ? { id: currentReplyId, stage: Math.min(d.stage + 1, 2) }
-          : { id: currentReplyId, stage: 1 },
-      );
+      if (keel.open) {
+        keel.setOpen(false);
+        return;
+      }
+      setDismissed({ id: currentReplyId, stage: 1 });
     };
     document.addEventListener("pointerdown", onDown);
     return () => document.removeEventListener("pointerdown", onDown);
-  }, [currentReplyId]);
+  }, [currentReplyId, keel]);
 
-  // A fresh reply resets the walk, so Keel speaks up again when he has news.
-  const stage = dismissed.id === currentReplyId ? dismissed.stage : 0;
-  const hint = stage === 1;
-  const bubbleHidden = stage >= 2;
+  // A fresh reply resets this, so Keel speaks up again when he has news.
+  const bubbleHidden = dismissed.id === currentReplyId && dismissed.stage > 0;
 
   function pressBuddy() {
     if (drag.current.moved) return;
-    const note = grabbed.current || keel.selection;
-    if (note) {
-      grabbed.current = "";
-      void keel.ask("What does this mean?", note);
-      return;
-    }
     keel.toggle();
   }
 
@@ -229,14 +217,14 @@ export function KeelOverlay() {
             </div>
             <button
               type="button"
-              className="icon-button"
+              className="icon-button keel-close"
               aria-label="Close Keel"
               onClick={() => {
                 keel.setOpen(false);
                 dockRef.current?.focus();
               }}
             >
-              <Icon name="close" size={16} />
+              <Icon name="close" size={22} />
             </button>
           </header>
           <div className="keel-panel-body">
@@ -371,13 +359,7 @@ export function KeelOverlay() {
       {!keel.open && !bubbleHidden && (
         <div className="keel-bubble" role="status" aria-live="polite">
           <p>
-            {keel.busy
-              ? "Thinking it through…"
-              : keel.selection
-                ? "Press me and I'll explain what you selected."
-                : hint || !keel.lastReply
-                  ? "Select any text on the page and press me to learn more about it."
-                  : keel.lastReply.text}
+            {keel.busy ? "Thinking it through…" : (keel.lastReply?.text ?? "Ask me anything about what you see.")}
           </p>
         </div>
       )}
@@ -397,7 +379,7 @@ export function KeelOverlay() {
         {keel.attached.length > 0 && <span className="keel-badge">{keel.attached.length}</span>}
         {keel.unread && !keel.open && <span className="keel-unread" aria-hidden="true" />}
         <span className="keel-dock-hint" aria-hidden="true">
-          {keel.dragging ? "Drop to ask Keel" : keel.selection ? "Explain this" : "Ask Keel"}
+          {keel.dragging ? "Drop to ask Keel" : "Ask Keel"}
         </span>
       </button>
     </div>

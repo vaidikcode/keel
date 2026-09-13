@@ -13,7 +13,7 @@ import {
 import { api } from "@/convex/_generated/api";
 import { useKeelSession } from "@/components/app/useKeelSession";
 import type { Turn } from "@/lib/dashboard/model";
-import { migrateProfile, nextStep, type Profile } from "@/lib/onboarding/questions";
+import { migrateProfile, nextStep, profileSchema, type Profile } from "@/lib/onboarding/questions";
 import { sampleProfile } from "@/lib/dashboard/sample";
 import type { KeelAskContext } from "@/lib/dashboard/api";
 import type { AttachedAsset } from "./keelDnd";
@@ -48,20 +48,19 @@ type KeelState = {
   paused: boolean;
   unread: boolean;
   quickAsks: string[];
-  /** Live text selection on the page, if any — what "explain this" acts on. */
-  selection: string;
   /** Buddy position, px offsets from its default corner. */
   pos: { x: number; y: number };
 };
 type KeelApi = {
+  /** Persists edited answers. Resolves false in demo mode or on failure. */
+  saveProfile: (next: Profile) => Promise<boolean>;
   setOpen: (open: boolean) => void;
   toggle: () => void;
   setPageContext: (ctx: PageContext) => void;
   attach: (asset: AttachedAsset) => void;
   detach: (id: string) => void;
   clearAttached: () => void;
-  /** `note` rides the request's `context.note`, already plumbed to the prompt. */
-  ask: (question: string, note?: string) => Promise<void>;
+  ask: (question: string) => Promise<void>;
   /** `open` false speaks through the bubble without opening the query box. */
   say: (text: string, open?: boolean) => void;
   setPos: (pos: { x: number; y: number }) => void;
@@ -76,7 +75,6 @@ const KeelCtx = createContext<(KeelState & KeelApi) | null>(null);
 const OPEN_KEY = "keel-overlay-open";
 const PAUSE_KEY = "keel-motion-paused";
 const POS_KEY = "keel-buddy-pos";
-const MAX_NOTE = 300;
 const MAX_ATTACHED = 4;
 
 function read(key: string): string | null {
@@ -103,6 +101,7 @@ export function KeelProvider({ children }: { children: ReactNode }) {
   );
   const newConversationMutation = useMutation(api.profiles.newConversation);
   const toggleSavedMutation = useMutation(api.profiles.toggleSaved);
+  const updateProfileMutation = useMutation(api.profiles.updateProfile);
 
   const profile = useMemo<Profile | null>(() => {
     if (demo) return sampleProfile;
@@ -124,7 +123,6 @@ export function KeelProvider({ children }: { children: ReactNode }) {
   const [dragOver, setDragOver] = useState(false);
   const [unread, setUnread] = useState(false);
   const [sampleSaved, setSampleSaved] = useState<string[]>([]);
-  const [selection, setSelection] = useState("");
   const [pos, setPosState] = useState({ x: 0, y: 0 });
   const interaction = useRef(0);
   const requestId = useRef<{ id: string; key: string } | null>(null);
@@ -145,24 +143,6 @@ export function KeelProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // The page selection is what "press me to learn more" explains. Reading it on
-  // a debounce keeps a drag-select from firing on every intermediate range.
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const onChange = () => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
-        const text = window.getSelection()?.toString().trim() ?? "";
-        // Ignore selections inside the buddy itself, or the reply it just gave.
-        setSelection(text.length > 1 ? text.slice(0, MAX_NOTE) : "");
-      }, 180);
-    };
-    document.addEventListener("selectionchange", onChange);
-    return () => {
-      if (timer) clearTimeout(timer);
-      document.removeEventListener("selectionchange", onChange);
-    };
-  }, []);
   useEffect(() => {
     const start = (e: DragEvent) => {
       if (e.dataTransfer && Array.from(e.dataTransfer.types).includes("application/x-keel-asset"))
@@ -235,7 +215,7 @@ export function KeelProvider({ children }: { children: ReactNode }) {
   );
 
   const ask = useCallback(
-    async (question: string, note?: string) => {
+    async (question: string) => {
       const text = question.trim();
       if (!text || busy) return;
       interaction.current += 1;
@@ -252,14 +232,12 @@ export function KeelProvider({ children }: { children: ReactNode }) {
         setLocalTurns((t) => [...t, turn]);
         return;
       }
-      const trimmedNote = note?.trim().slice(0, MAX_NOTE) || undefined;
-      const base: KeelAskContext =
+      const context: KeelAskContext =
         pageContext.page === "asset"
           ? { page: `asset:${pageContext.assetId}`, assetIds: attached.map((a) => a.id) }
           : pageContext.page === "dashboard"
             ? { page: "dashboard", categoryId: pageContext.categoryId, assetIds: attached.map((a) => a.id) }
             : { page: "dashboard", assetIds: attached.map((a) => a.id) };
-      const context: KeelAskContext = trimmedNote ? { ...base, note: trimmedNote } : base;
       const key = `${text}|${JSON.stringify(context)}`;
       if (requestId.current?.key !== key) requestId.current = { id: crypto.randomUUID(), key };
       setBusy(true);
@@ -316,6 +294,25 @@ export function KeelProvider({ children }: { children: ReactNode }) {
     if (sessionId && !demo) await newConversationMutation({ sessionId }).catch(() => {});
   }, [demo, newConversationMutation, sessionId]);
 
+  /**
+   * Writes edited answers without touching the conversation or cached packs —
+   * `saveExperience` clears those, which is right at the end of onboarding and
+   * wrong when someone changes one answer later.
+   */
+  const saveProfile = useCallback(
+    async (next: Profile): Promise<boolean> => {
+      if (demo || !sessionId) return false;
+      const parsed = profileSchema.safeParse(next);
+      if (!parsed.success) return false;
+      const result = await updateProfileMutation({
+        sessionId,
+        profile: parsed.data,
+      }).catch(() => null);
+      return result !== null;
+    },
+    [demo, sessionId, updateProfileMutation],
+  );
+
   const toggleSaved = useCallback(
     async (assetId: string) => {
       if (demo || !sessionId) {
@@ -350,6 +347,7 @@ export function KeelProvider({ children }: { children: ReactNode }) {
       demo,
       isLoaded: session.isLoaded,
       profile,
+      saveProfile,
       hasProfile: demo || Boolean(profileDoc),
       revision,
       savedAssets: demo ? sampleSaved : (profileDoc?.savedAssets ?? []),
@@ -367,7 +365,6 @@ export function KeelProvider({ children }: { children: ReactNode }) {
       paused,
       unread,
       quickAsks,
-      selection,
       pos,
       setOpen,
       toggle: () => setOpen(!open),
@@ -384,7 +381,7 @@ export function KeelProvider({ children }: { children: ReactNode }) {
       toggleSaved,
       withDemo,
     }),
-    [ask, attach, attached, busy, clearAttached, demo, detach, dragOver, dragging, error, lastReply, newConversation, notice, open, pageContext, paused, pos, profile, profileDoc, quickAsks, revision, sampleSaved, say, selection, session.isLoaded, sessionId, setOpen, setPageContext, setPaused, setPos, toggleSaved, turns, unread, withDemo],
+    [ask, attach, attached, busy, clearAttached, demo, detach, dragOver, dragging, error, lastReply, newConversation, notice, open, pageContext, paused, pos, profile, profileDoc, quickAsks, revision, sampleSaved, saveProfile, say, session.isLoaded, sessionId, setOpen, setPageContext, setPaused, setPos, toggleSaved, turns, unread, withDemo],
   );
   return <KeelCtx.Provider value={value}>{children}</KeelCtx.Provider>;
 }

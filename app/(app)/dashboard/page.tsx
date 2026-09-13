@@ -6,6 +6,7 @@ import { KeelMascot } from "@/components/dashboard/KeelMascot";
 import { useKeel } from "@/components/keel/KeelContext";
 import { capacityFor } from "@/lib/market/fit";
 import { landingCategory } from "@/lib/market/select";
+import { viewForCategory } from "@/lib/market/navGroups";
 
 export default function DashboardIndex() {
   const keel = useKeel();
@@ -13,10 +14,11 @@ export default function DashboardIndex() {
   useEffect(() => {
     if (!keel.isLoaded) return;
     if (keel.demo) {
-      router.replace("/dashboard/broad-funds?demo=1");
+      router.replace("/dashboard/funds?demo=1");
       return;
     }
-    if (keel.profile) router.replace(`/dashboard/${landingCategory(keel.profile, capacityFor(keel.profile))}`);
+    if (keel.profile)
+      router.replace(`/dashboard/${viewForCategory(landingCategory(keel.profile, capacityFor(keel.profile)))}`);
   }, [keel.demo, keel.isLoaded, keel.profile, router]);
   if (keel.isLoaded && !keel.demo && keel.sessionId && !keel.hasProfile && keel.profile === null)
     return (

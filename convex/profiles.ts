@@ -121,6 +121,40 @@ export const saveExperience = mutation({
     });
   },
 });
+/**
+ * Saving answers from the account page, without the collateral damage.
+ *
+ * `saveExperience` clears the conversation, the cached dashboard, the keel pack
+ * and the catalog source, because it exists for finishing onboarding. Editing
+ * one answer later must not throw away someone's chat history, so this writes
+ * only the profile and the things derived from it. The revision still moves —
+ * rankings and signals depend on the answers, and consumers key off it.
+ */
+export const updateProfile = mutation({
+  args: { sessionId: v.string(), profile: profileV3 },
+  returns: v.union(v.number(), v.null()),
+  handler: async (ctx, args) => {
+    const sessionId = clip(args.sessionId, MAX_SESSION);
+    const profile = profileSchema.parse(migrateProfile(args.profile));
+    const existing = await ctx.db
+      .query("profiles")
+      .withIndex("by_sessionId", (q) => q.eq("sessionId", sessionId))
+      .first();
+    if (!existing) return null;
+    const revision = (existing.revision ?? 0) + 1;
+    // Intake mirrors the profile, the same way saveExperience keeps them in step.
+    const intake = intakeFromProfile(profile);
+    await ctx.db.patch("profiles", existing._id, {
+      profileV3: profile,
+      profileV2: undefined,
+      revision,
+      intake,
+      signals: deriveSignals(intake, revision),
+    });
+    return revision;
+  },
+});
+
 export const saveDashboard = mutation({
   args: {
     sessionId: v.string(),

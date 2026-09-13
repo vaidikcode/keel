@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { analyzedAssetSchema, type AnalyzedAsset } from "@/lib/dashboard/analyzedAsset";
+import { useRouter } from "next/navigation";
 import { useKeel } from "@/components/keel/KeelContext";
 import { Icon } from "@/components/ui/Icon";
 
@@ -17,6 +19,7 @@ function sourceHost(url: string): string {
 
 export function TabAnalyzer() {
   const keel = useKeel();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>("intro");
   const [question, setQuestion] = useState("What should I know before considering this stock?");
@@ -30,6 +33,12 @@ export function TabAnalyzer() {
     stream.current?.getTracks().forEach((track) => track.stop());
     stream.current = null;
     if (video.current) video.current.srcObject = null;
+  }
+
+  /** An analysed tab behaves like any other page once it exists. */
+  function openTab(id: string) {
+    close();
+    router.push(keel.withDemo(`/dashboard/tab/${encodeURIComponent(id)}`));
   }
 
   function close() {
@@ -68,13 +77,6 @@ export function TabAnalyzer() {
         setPhase("intro");
       });
       setPhase("sharing");
-      requestAnimationFrame(() => {
-        if (video.current) {
-          video.current.srcObject = next;
-          void video.current.play();
-        }
-        input.current?.focus();
-      });
     } catch (caught) {
       if (caught instanceof DOMException && caught.name === "NotAllowedError")
         setError("Tab sharing was cancelled. Choose a stock tab when you're ready.");
@@ -82,10 +84,27 @@ export function TabAnalyzer() {
     }
   }
 
-  function captureFrame(): string {
+  async function captureFrame(): Promise<string> {
     const view = video.current;
-    if (!view || !view.videoWidth || !view.videoHeight)
-      throw new Error("The shared tab isn't visible yet. Wait a moment and try again.");
+    if (!view) throw new Error("The shared tab isn't ready yet. Try sharing it again.");
+    if (!view.videoWidth || !view.videoHeight || view.readyState < 2) {
+      await new Promise<void>((resolve, reject) => {
+        const stop = () => {
+          window.clearInterval(poll);
+          window.clearTimeout(deadline);
+        };
+        const deadline = window.setTimeout(() => {
+          stop();
+          reject(new Error("The shared tab didn't send a picture. Try sharing it again."));
+        }, 6000);
+        const poll = window.setInterval(() => {
+          if (view.videoWidth && view.videoHeight && view.readyState >= 2) {
+            stop();
+            resolve();
+          }
+        }, 120);
+      });
+    }
     const scale = Math.min(1, 1400 / view.videoWidth, 900 / view.videoHeight);
     const canvas = document.createElement("canvas");
     canvas.width = Math.round(view.videoWidth * scale);
@@ -96,13 +115,25 @@ export function TabAnalyzer() {
     return canvas.toDataURL("image/jpeg", 0.78);
   }
 
+  useEffect(() => {
+    if (phase !== "sharing" && phase !== "analyzing") return;
+    const view = video.current;
+    const next = stream.current;
+    if (!view || !next || view.srcObject === next) return;
+    view.srcObject = next;
+    void view.play().catch(() => {
+      /* A paused preview still decodes frames; capture does not need playback. */
+    });
+    input.current?.focus();
+  }, [phase]);
+
   async function analyze(event: FormEvent) {
     event.preventDefault();
     if (!keel.sessionId || phase === "analyzing") return;
     setError("");
     setPhase("analyzing");
     try {
-      const image = captureFrame();
+      const image = await captureFrame();
       const response = await fetch("/api/analyze-tab", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -126,15 +157,15 @@ export function TabAnalyzer() {
     <>
       <button
         type="button"
-        className="button primary small analyze-tab-trigger"
+        className="button primary analyze-tab-trigger is-shining"
         onClick={() => setOpen(true)}
         disabled={keel.demo || !keel.sessionId}
         title={keel.demo ? "Add your answers to analyze a live tab" : undefined}
       >
-        <Icon name="search" size={15} /> Analyze another tab
+        <Icon name="search" size={18} /> Analyze another tab
       </button>
 
-      {open && (
+      {open && createPortal(
         <div className="tab-analyzer-backdrop" role="presentation" onMouseDown={(event) => {
           if (event.target === event.currentTarget) close();
         }}>
@@ -205,7 +236,10 @@ export function TabAnalyzer() {
                   </div>
                 )}
                 <div className="result-actions">
-                  <button type="button" className="button primary" onClick={() => { keel.setOpen(true); close(); }}>
+                  <button type="button" className="button primary" onClick={() => openTab(result.id)}>
+                    Open this tab <Icon name="arrow" size={16} />
+                  </button>
+                  <button type="button" className="button secondary" onClick={() => { keel.setOpen(true); close(); }}>
                     Continue with Keel <Icon name="chat" size={16} />
                   </button>
                   <button type="button" className="button secondary" onClick={() => { setResult(null); setPhase("intro"); }}>
@@ -218,7 +252,8 @@ export function TabAnalyzer() {
             {error && <p className="tab-analyzer-error" role="alert">{error}</p>}
             <p className="tab-analyzer-privacy"><Icon name="shield" size={13} /> Keel only receives the captured frame when you press Analyze.</p>
           </section>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

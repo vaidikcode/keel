@@ -1,9 +1,45 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { categoryResponseSchema, type CategoryResponse } from "@/lib/dashboard/api";
 
 type Status = "idle" | "loading" | "ready" | "error";
 const cache = new Map<string, CategoryResponse>();
+
+/**
+ * Freshness is a property of the page, not of one section: an asset-class page
+ * pulls several categories at once, so the header cannot read it off a single
+ * response. This little store is what every section reports into and what the
+ * refresh control reads back out.
+ */
+type Freshness = { fetchedAt: number; inFlight: number; generation: number; stale: boolean; sample: boolean };
+const EMPTY: Freshness = { fetchedAt: 0, inFlight: 0, generation: 0, stale: false, sample: false };
+let freshness: Freshness = EMPTY;
+const listeners = new Set<() => void>();
+
+function setFreshness(patch: Partial<Freshness>) {
+  freshness = { ...freshness, ...patch };
+  for (const notify of listeners) notify();
+}
+function subscribe(notify: () => void) {
+  listeners.add(notify);
+  return () => {
+    listeners.delete(notify);
+  };
+}
+
+/** Drops every cached category and makes each mounted section fetch again. */
+export function refreshAllCategories() {
+  cache.clear();
+  setFreshness({ generation: freshness.generation + 1 });
+}
+
+export function useFreshness(): Freshness {
+  return useSyncExternalStore(
+    subscribe,
+    () => freshness,
+    () => EMPTY,
+  );
+}
 
 export function useCategoryData(categoryId: string, sessionId: string | null, revision: number) {
   const [status, setStatus] = useState<Status>("idle");
@@ -12,10 +48,16 @@ export function useCategoryData(categoryId: string, sessionId: string | null, re
   const [nonce, setNonce] = useState(0);
   const controller = useRef<AbortController | null>(null);
   const forceNext = useRef(false);
+  const seenGeneration = useRef(0);
   const key = `${sessionId}:${revision}:${categoryId}`;
+  // This section's own refresh and a page-wide one both re-run the fetch.
+  const generation = useFreshness().generation;
+  const bust = nonce + generation;
 
   useEffect(() => {
     if (!sessionId) return;
+    // `refreshAllCategories` empties the cache, so a generation bump misses
+    // here anyway; `nonce` alone decides whether a cached reply may be replayed.
     const cached = nonce === 0 ? cache.get(key) : undefined;
     if (cached) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- replaying a synchronous cache hit.
@@ -26,11 +68,22 @@ export function useCategoryData(categoryId: string, sessionId: string | null, re
     controller.current?.abort();
     const ac = new AbortController();
     let recheck: ReturnType<typeof setTimeout> | undefined;
-    const force = forceNext.current;
+    // Every generation bump comes from someone pressing refresh, so it forces.
+    // The recheck below only bumps `nonce`, which deliberately does not.
+    const refreshed = seenGeneration.current !== generation;
+    seenGeneration.current = generation;
+    const force = forceNext.current || refreshed;
     forceNext.current = false;
     controller.current = ac;
     setStatus("loading");
     setError("");
+    setFreshness({ inFlight: freshness.inFlight + 1 });
+    let counted = true;
+    const done = () => {
+      if (!counted) return;
+      counted = false;
+      setFreshness({ inFlight: Math.max(0, freshness.inFlight - 1) });
+    };
     fetch("/api/category", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -42,6 +95,12 @@ export function useCategoryData(categoryId: string, sessionId: string | null, re
         if (!response.ok) throw new Error(body.error ?? "We couldn't load this category.");
         const parsed = categoryResponseSchema.parse(body);
         cache.set(key, parsed);
+        done();
+        setFreshness({
+          fetchedAt: Math.max(freshness.fetchedAt, parsed.fetchedAt),
+          stale: parsed.stale,
+          sample: parsed.sample,
+        });
         if (!ac.signal.aborted) {
           setData(parsed);
           setStatus("ready");
@@ -57,15 +116,17 @@ export function useCategoryData(categoryId: string, sessionId: string | null, re
         }
       })
       .catch((e) => {
+        done();
         if (ac.signal.aborted) return;
         setError(e instanceof Error ? e.message : "We couldn't load this category.");
         setStatus("error");
       });
     return () => {
+      done();
       ac.abort();
       if (recheck) clearTimeout(recheck);
     };
-  }, [categoryId, key, nonce, sessionId]);
+  }, [bust, categoryId, generation, key, nonce, sessionId]);
 
   const refresh = useCallback(() => {
     forceNext.current = true;

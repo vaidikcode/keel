@@ -1847,7 +1847,6 @@ strong {
   position: relative;
   flex: 0 0 236px;
   scroll-snap-align: start;
-  padding-left: 44px;
   transition:
     transform 0.18s ease,
     filter 0.18s ease;
@@ -1860,23 +1859,6 @@ strong {
 }
 .ranked-card.is-dragging {
   opacity: 0.55;
-}
-.rank-number {
-  position: absolute;
-  left: -2px;
-  bottom: -6px;
-  font-size: 78px;
-  line-height: 1;
-  font-weight: 700;
-  letter-spacing: -0.06em;
-  color: transparent;
-  -webkit-text-stroke: 2px #6d8398;
-  pointer-events: none;
-  user-select: none;
-}
-.ranked-card.is-top .rank-number {
-  color: var(--harbor);
-  -webkit-text-stroke: 2px var(--harbor);
 }
 .ranked-card-main {
   display: flex;
@@ -2037,9 +2019,6 @@ strong {
 .ranked-card.is-skeleton .ranked-card-main {
   background: #f0f3ef;
   border-color: transparent;
-}
-.ranked-card.is-skeleton .rank-number {
-  -webkit-text-stroke-color: #d8e0db;
 }
 .positive {
   color: var(--sea-glass);
@@ -2767,10 +2746,6 @@ strong {
   }
   .ranked-card {
     flex-basis: 214px;
-    padding-left: 36px;
-  }
-  .rank-number {
-    font-size: 62px;
   }
   .ranked-expand {
     width: 40px;
@@ -4543,4 +4518,948 @@ strong {
 ::-moz-selection {
   background: #bcd9f7;
   color: var(--ink);
+}
+
+/* A close control worth aiming at. */
+.keel-panel .keel-close {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.keel-panel .keel-close:hover {
+  background: var(--harbor-wash);
+  color: var(--harbor-deep);
+}
+
+/* ── Ranked card: expands on hover, details slide up ────────────────────────
+   The card widens and its detail panel rises from the bottom edge, covering
+   the sparkline. Width and translate animate cleanly; scaling the card would
+   blur its text. The panel used to hang below the card, which is why
+   `.ranked-row` carried a -196px/220px margin-padding pair to make room — and
+   an overhang also breaks the carousel, since a transformed ancestor becomes
+   the containing block and the panel can no longer escape. */
+.ranked-row {
+  margin: 0;
+  padding: 26px 6px 30px;
+  overflow-y: visible;
+  align-items: stretch;
+}
+.ranked-card {
+  /* The detail panel is a sibling of `.ranked-card-main`, so the clip that
+     hides it below the fold has to live here, on their shared parent. */
+  overflow: hidden;
+  border-radius: 16px;
+  transition:
+    flex-basis 0.42s var(--ease-expo-out),
+    transform 0.42s var(--ease-expo-out);
+}
+/* The reference slider's proportions belong to the carousel only. The plain
+   `.ranked-row` on a category page is a compact grid and keeps its own size. */
+.carousel-track .ranked-card {
+  flex: 0 0 320px;
+  height: 400px;
+  transform: perspective(1100px) rotateY(var(--tilt, 0deg));
+}
+.carousel-track .ranked-card:hover,
+.carousel-track .ranked-card:focus-within,
+.carousel-track .ranked-card.is-expanded {
+  /* Wider, not scaled — the card makes room for the metrics. */
+  flex-basis: 500px;
+  transform: perspective(1100px) rotateY(0deg);
+  z-index: 3;
+}
+/* The card is a fixed box now, so its face has to fill it and the chart takes
+   up whatever the text leaves. */
+.carousel-track .ranked-card-main {
+  height: 100%;
+  min-height: 0;
+  padding: 20px 22px 18px;
+  border-radius: 16px;
+}
+/* Rises to just below the ticker and name, the way the reference's caption
+   stops short of the top of its card. */
+.carousel-track .ranked-details {
+  height: calc(100% - 104px);
+  padding: 16px 22px 18px;
+}
+.carousel-track .ranked-card-main .sparkline {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  width: 100%;
+}
+.ranked-card-main {
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.24s var(--ease-expo-out);
+}
+/* Sits just off the bottom edge and rises to cover the sparkline. */
+.ranked-details {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: auto;
+  height: calc(100% - 66px);
+  padding: 12px 16px 14px;
+  border-radius: 0 0 16px 16px;
+  background: var(--surface);
+  border: 0;
+  border-top: 1px solid var(--line);
+  box-shadow: none;
+  opacity: 1;
+  transform: translateY(101%);
+  pointer-events: none;
+  transition: transform 0.42s var(--ease-expo-out);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.ranked-card:hover .ranked-details,
+.ranked-card:focus-within .ranked-details,
+.ranked-card.is-expanded .ranked-details {
+  transform: translateY(0);
+  pointer-events: auto;
+}
+/* The supporting copy arrives after the panel, the way the reference does. */
+.ranked-details .one-liner,
+.ranked-details .ranked-actions {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 0.32s var(--ease-expo-out) 0.14s,
+    transform 0.32s var(--ease-expo-out) 0.14s;
+}
+.ranked-card:hover .one-liner,
+.ranked-card:hover .ranked-actions,
+.ranked-card:focus-within .one-liner,
+.ranked-card:focus-within .ranked-actions,
+.ranked-card.is-expanded .one-liner,
+.ranked-card.is-expanded .ranked-actions {
+  opacity: 1;
+  transform: none;
+}
+/* Not an equal-sized metric grid: each figure sits opposite its label. */
+.ranked-details dl {
+  display: block;
+  margin: 0;
+}
+.ranked-details dl > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px dashed var(--line);
+  padding: 3px 0;
+}
+.ranked-details dl > div:last-child {
+  border-bottom: 0;
+}
+.ranked-details dt {
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ranked-details dd {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ranked-details .one-liner {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ranked-details .ranked-actions {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: nowrap;
+}
+.ranked-details .ranked-actions .button.small {
+  padding: 7px 12px;
+  font-size: 12px;
+  gap: 6px;
+  min-height: 0;
+  white-space: nowrap;
+}
+.ranked-details .ranked-actions .icon-button {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+/* Motion is decoration here: without it the panel is simply present. */
+@media (prefers-reduced-motion: reduce) {
+  .ranked-card,
+  .ranked-details,
+  .ranked-details .one-liner,
+  .ranked-details .ranked-actions {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* ── Carousel, disclaimer, kind pages ───────────────────────────────────────*/
+
+.carousel-section {
+  margin-bottom: 6px;
+}
+.carousel-section .section-head {
+  align-items: flex-start;
+}
+/* design.md: display type is Antonio 700, uppercase, tight tracking and
+   sub-1.0 leading, against Outfit for everything else. Section headings are
+   display type. */
+.section-head h2 {
+  font-family: var(--font-lateral);
+  font-weight: 700;
+  font-size: 44px;
+  line-height: 0.92;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.carousel-section .section-head .fine-print {
+  max-width: 62ch;
+}
+/* The rail keeps real scrolling — keyboard, trackpad and touch all still work;
+   the turn is decoration layered on top. */
+.carousel-track {
+  perspective: 1100px;
+  perspective-origin: 50% 50%;
+  cursor: grab;
+  scroll-behavior: smooth;
+  /* The rails fill in over several requests, and each card that arrives or
+     leaves makes the browser re-anchor and re-snap the rail — which left them
+     opening halfway along, or at the last card, instead of on rank one. The
+     arrows and the drag sweep both scroll freely, so neither is needed here. */
+  overflow-anchor: none;
+  scroll-snap-type: none;
+}
+.carousel-track .ranked-card,
+.carousel-track .trend-card {
+  scroll-snap-align: none;
+}
+.carousel-track.is-sweeping {
+  cursor: grabbing;
+  scroll-behavior: auto;
+  scroll-snap-type: none;
+  user-select: none;
+}
+.carousel-track .ranked-card,
+.carousel-track .trend-card {
+  transform-style: preserve-3d;
+}
+/* Arrows sit either side of the rail rather than up in the heading, so the
+   rail is inset from the column edges and no card is cut off by them. */
+.carousel-rail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.carousel-rail .carousel-track {
+  flex: 1 1 auto;
+  /* Without this a flex item refuses to shrink below its content width, which
+     is what pushed the rail past the column and clipped the last card. The
+     max-width that rounds the rail down to whole cards is set in Carousel.tsx,
+     which is the only place the card step can be measured. */
+  min-width: 0;
+  margin: 0 auto;
+}
+.carousel-arrow {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    background 0.18s var(--ease-expo-out),
+    border-color 0.18s var(--ease-expo-out),
+    opacity 0.18s var(--ease-expo-out);
+}
+.carousel-arrow:hover:not(:disabled) {
+  background: var(--harbor-wash);
+  border-color: var(--harbor);
+  color: var(--harbor-deep);
+}
+.carousel-arrow:focus-visible {
+  outline: 2px solid var(--harbor);
+  outline-offset: 2px;
+}
+.carousel-arrow:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+/* The dots are the rail's position readout, so the scrollbar is redundant. */
+.carousel-track {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.carousel-track::-webkit-scrollbar {
+  display: none;
+}
+.carousel-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 7px;
+  margin-top: 2px;
+}
+.carousel-dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #ccd6cf;
+  cursor: pointer;
+  transition:
+    width 0.3s var(--ease-expo-out),
+    border-radius 0.3s var(--ease-expo-out),
+    background 0.3s var(--ease-expo-out);
+}
+.carousel-dot:hover {
+  background: var(--harbor);
+}
+.carousel-dot.is-active {
+  width: 22px;
+  border-radius: 4px;
+  background: var(--harbor);
+}
+.carousel-dot:focus-visible {
+  outline: 2px solid var(--harbor);
+  outline-offset: 2px;
+}
+.row-scroll-buttons .icon-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+/* A trending card on a rail is the same object as a ranked one, so it gets the
+   same box. It has no detail panel to open, so hovering lifts it rather than
+   widening it into empty space. */
+.carousel-track .trend-card {
+  flex: 0 0 320px;
+  height: 400px;
+  transform: perspective(1100px) rotateY(var(--tilt, 0deg));
+  transition: transform 0.42s var(--ease-expo-out);
+}
+.carousel-track .trend-card:hover {
+  transform: perspective(1100px) rotateY(0deg) translateY(-4px);
+  z-index: 3;
+}
+.carousel-track .trend-card a {
+  height: 100%;
+  gap: 8px;
+  padding: 20px 22px 18px;
+  border-radius: 16px;
+}
+.carousel-track .trend-card .trend-top {
+  font-size: 19px;
+  font-weight: 600;
+}
+.carousel-track .trend-card .trend-change {
+  font-size: 14px;
+}
+.carousel-track .trend-card .name {
+  font-size: 13px;
+}
+/* The chart takes whatever the text leaves, exactly as on a ranked card. */
+.carousel-track .trend-card .sparkline {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  width: 100%;
+}
+.carousel-track .trend-card .category-chip {
+  font-size: 11px;
+  padding: 5px 9px;
+}
+
+/* Stated once per page, in the one place a warning belongs. Coral is already
+   the negative role in the palette, so this borrows it rather than inventing
+   a colour. */
+.disclaimer-banner {
+  margin: 0 0 4px;
+  padding: 11px 16px;
+  border-radius: 12px;
+  background: #fdf1ef;
+  border: 1px solid #f0cfc8;
+  color: #7d3d31;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.disclaimer-banner strong {
+  font-weight: 600;
+  color: #6d3227;
+}
+
+.kind-lead {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--muted);
+  max-width: 60ch;
+  margin: 0 0 6px;
+}
+
+/* Card sizes step down exactly as the reference slider's do. */
+@media (min-width: 992px) and (max-width: 1199px) {
+  .carousel-track .ranked-card,
+  .carousel-track .trend-card {
+    flex-basis: 260px;
+    height: 360px;
+  }
+  .carousel-track .ranked-card:hover,
+  .carousel-track .ranked-card:focus-within,
+  .carousel-track .ranked-card.is-expanded {
+    flex-basis: 400px;
+  }
+}
+@media (min-width: 768px) and (max-width: 991px) {
+  .carousel-track .ranked-card,
+  .carousel-track .trend-card {
+    flex-basis: 240px;
+    height: 330px;
+  }
+  .carousel-track .ranked-card:hover,
+  .carousel-track .ranked-card:focus-within,
+  .carousel-track .ranked-card.is-expanded {
+    flex-basis: 360px;
+  }
+  .section-head h2 {
+    font-size: 26px;
+  }
+}
+@media (max-width: 767px) {
+  .carousel-track .ranked-card,
+  .carousel-track .trend-card {
+    flex-basis: 200px;
+    height: 280px;
+  }
+  .carousel-track .ranked-card:hover,
+  .carousel-track .ranked-card:focus-within,
+  .carousel-track .ranked-card.is-expanded {
+    flex-basis: 270px;
+  }
+  .carousel-track .ranked-card-main {
+    padding: 14px 15px 12px;
+  }
+  .ranked-details {
+    padding: 12px 15px 14px;
+  }
+  .section-head h2 {
+    font-size: 22px;
+  }
+}
+
+/* On a touch screen `:hover` latches after a tap and never clears, which would
+   leave a card stuck open. There the chevron is the way in, so only the
+   explicit `.is-expanded` state opens the panel. */
+@media (hover: none) {
+  .ranked-card:hover {
+    flex-basis: 236px;
+  }
+  .ranked-card:hover .ranked-details {
+    transform: translateY(101%);
+    pointer-events: none;
+  }
+  .ranked-card.is-expanded {
+    flex-basis: 348px;
+  }
+  .ranked-card.is-expanded .ranked-details {
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+  .ranked-card:hover .one-liner,
+  .ranked-card:hover .ranked-actions {
+    opacity: 0;
+  }
+  .ranked-card.is-expanded .one-liner,
+  .ranked-card.is-expanded .ranked-actions {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carousel-track .ranked-card,
+  .carousel-track .trend-card {
+    transform: none;
+    transition: none;
+  }
+  .carousel-track {
+    scroll-behavior: auto;
+  }
+}
+.motion-paused .carousel-track .ranked-card,
+.motion-paused .carousel-track .trend-card {
+  transform: none !important;
+}
+
+/* Above 1400px the plain `.ranked-row` becomes a wrapping grid, which is right
+   for a single static row but turns a carousel into a block of cards. The rail
+   stays a rail at every width. */
+@media (min-width: 1400px) {
+  .carousel-track {
+    display: flex;
+    grid-template-columns: none;
+    overflow-x: auto;
+    overflow-y: visible;
+    margin: 0;
+    padding: 26px 6px 30px;
+  }
+  .carousel-section .row-scroll-buttons {
+    display: flex;
+  }
+}
+
+/* ── Refresh control ────────────────────────────────────────────────────────
+   One icon per page. The timestamp it used to print beside itself only matters
+   when someone goes looking for it, so it waits in the tooltip. */
+.refresh-control {
+  position: relative;
+  display: inline-flex;
+}
+.refresh-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    color 0.18s var(--ease-expo-out),
+    border-color 0.18s var(--ease-expo-out),
+    background 0.18s var(--ease-expo-out);
+}
+.refresh-button:hover:not(:disabled) {
+  color: var(--harbor-deep);
+  border-color: var(--harbor);
+  background: var(--harbor-wash);
+}
+.refresh-button:focus-visible {
+  outline: 2px solid var(--harbor);
+  outline-offset: 2px;
+}
+.refresh-control.is-stale .refresh-button {
+  color: var(--amber);
+  border-color: #e4d3b4;
+}
+.refresh-control.is-busy .refresh-button {
+  cursor: default;
+  color: var(--harbor);
+}
+.refresh-control.is-busy .refresh-button svg {
+  animation: refresh-spin 0.9s linear infinite;
+}
+@keyframes refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.motion-paused .refresh-control.is-busy .refresh-button svg {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .refresh-control.is-busy .refresh-button svg {
+    animation: none;
+  }
+}
+.refresh-tip {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 6;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 11.5px;
+  line-height: 1.4;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition:
+    opacity 0.18s var(--ease-expo-out),
+    transform 0.18s var(--ease-expo-out);
+}
+.refresh-control:hover .refresh-tip,
+.refresh-control:focus-within .refresh-tip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Sidebar: analysed tabs and the way to make one ─────────────────────────── */
+.sidebar-section-title {
+  margin: 0 0 6px;
+  padding: 0 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.sidebar-tabs {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.sidebar-tabs ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sidebar-tabs a {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+.sidebar-tabs a:hover {
+  background: var(--harbor-wash);
+  color: var(--harbor-deep);
+}
+.sidebar-tabs a[aria-current="page"] {
+  background: var(--harbor);
+  color: #fff;
+}
+.sidebar-analyze {
+  margin-top: 12px;
+}
+.sidebar-analyze .analyze-tab-trigger {
+  width: 100%;
+  justify-content: center;
+  /* The panel is narrow; keep the label on one line rather than letting it
+     break after "another". */
+  white-space: nowrap;
+  font-size: 13px;
+  padding: 12px 10px;
+  gap: 7px;
+}
+
+/* A quiet sheen travelling across the button, so the one action that brings
+   outside pages in reads as the live thing on the panel. */
+.analyze-tab-trigger.is-shining {
+  position: relative;
+  overflow: hidden;
+  font-size: 14px;
+  padding: 13px 18px;
+  gap: 9px;
+}
+.analyze-tab-trigger.is-shining::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 -60%;
+  width: 55%;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.42) 50%,
+    transparent 100%
+  );
+  transform: skewX(-18deg);
+  animation: analyze-sheen 3.6s var(--ease-expo-in-out) infinite;
+  pointer-events: none;
+}
+@keyframes analyze-sheen {
+  0%,
+  55% {
+    left: -60%;
+  }
+  100% {
+    left: 130%;
+  }
+}
+.analyze-tab-trigger.is-shining:disabled::after {
+  animation: none;
+}
+.motion-paused .analyze-tab-trigger.is-shining::after {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .analyze-tab-trigger.is-shining::after {
+    animation: none;
+  }
+}
+
+/* ── An analysed tab, opened as its own page ────────────────────────────────── */
+.analyzed-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 74ch;
+  padding: 22px 24px 24px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.analyzed-identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.analyzed-identity .ticker {
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--harbor-wash);
+  color: var(--harbor-deep);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.analyzed-identity h2 {
+  margin: 0;
+  font-family: var(--font-lateral);
+  font-weight: 700;
+  font-size: 30px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.analyzed-identity small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.analyzed-question {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+.analyzed-summary {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+/* ── Account ────────────────────────────────────────────────────────────────
+   The answers Keel ranks with, and the Clerk account, as two separate tabs.
+   Signing in is not the same activity as saying what you are saving for. */
+.account-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 18px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--line);
+}
+.account-tab {
+  padding: 10px 16px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.18s var(--ease-expo-out);
+}
+.account-tab:hover {
+  color: var(--ink);
+}
+.account-tab.selected {
+  color: var(--harbor-deep);
+  border-bottom-color: var(--harbor);
+}
+.account-tab:focus-visible {
+  outline: 2px solid var(--harbor);
+  outline-offset: -2px;
+}
+.account-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  max-width: 78ch;
+}
+.score-readout {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.score-readout strong {
+  font-family: var(--font-lateral);
+  font-weight: 700;
+  font-size: 52px;
+  line-height: 1;
+  color: var(--ink);
+}
+.score-readout span {
+  font-size: 13px;
+  color: var(--muted);
+}
+.score-reasons {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.score-reasons li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.score-reasons span {
+  min-width: 34px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.account-field {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.account-field legend {
+  padding: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.account-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.account-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13.5px;
+  cursor: pointer;
+  transition:
+    border-color 0.18s var(--ease-expo-out),
+    background 0.18s var(--ease-expo-out);
+}
+.account-option:hover {
+  border-color: var(--harbor);
+}
+.account-option.selected {
+  background: var(--harbor-wash);
+  border-color: var(--harbor);
+  color: var(--harbor-deep);
+  font-weight: 500;
+}
+.account-option:focus-visible {
+  outline: 2px solid var(--harbor);
+  outline-offset: 2px;
+}
+.account-save {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+.account-save-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--sea-glass);
+}
+.account-save-note.is-error {
+  color: var(--coral);
+}
+
+/* The account block at the foot of the sidebar is one link, not a button
+   wrapping Clerk's own button. */
+.sidebar-bottom.is-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: var(--ink);
+  text-decoration: none;
+  transition: background 0.18s var(--ease-expo-out);
+}
+.sidebar-bottom.is-link:hover {
+  background: var(--harbor-wash);
+}
+.sidebar-bottom.is-link small {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.sidebar-bottom.is-link small strong {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.sidebar-bottom.is-link svg {
+  margin-left: auto;
+  color: var(--muted);
+}
+img.tiny-avatar {
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* ── Portfolio ──────────────────────────────────────────────────────────────
+   Two gauges side by side: how much the saved list moves, and how much the
+   answers suggest this person can sit through. */
+.portfolio-fit {
+  margin-bottom: 6px;
+}
+.portfolio-gauges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px;
+  margin-bottom: 12px;
+}
+.portfolio-gauges > div {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.gauge-label {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.portfolio-gauges b {
+  display: block;
+  margin-top: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
 }

@@ -43,7 +43,7 @@ export function RankedCard({
 
   return (
     <li
-      className={`ranked-card ${expanded ? "is-expanded" : ""} ${dragging ? "is-dragging" : ""} ${asset.rank <= 3 ? "is-top" : ""}`}
+      className={`ranked-card ${expanded ? "is-expanded" : ""} ${dragging ? "is-dragging" : ""}`}
       draggable
       onDragStart={(e) => {
         startAssetDrag(e, { id: asset.id, ticker: asset.ticker, name: asset.name });
@@ -55,9 +55,6 @@ export function RankedCard({
       aria-setsize={total}
       aria-roledescription="draggable option"
     >
-      <span className="rank-number" aria-hidden="true">
-        {asset.rank}
-      </span>
       <Link
         ref={linkRef}
         href={href}

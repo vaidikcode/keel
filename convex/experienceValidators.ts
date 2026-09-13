@@ -108,6 +108,9 @@ export const profileV3 = v.object({
   monthly: v.union(v.number(), v.null()),
   emergency: v.union(v.literal("yes"), v.literal("no"), v.literal("unknown")),
   debt: v.union(v.literal("yes"), v.literal("no"), v.literal("unknown")),
+  // Optional so the push still validates every profileV3 already in production,
+  // none of which carries this field.
+  newsSources: v.optional(v.array(v.string())),
 });
 
 /** Five fixed intake answers (teammate's onboarding). Optional sibling of profileV*. */

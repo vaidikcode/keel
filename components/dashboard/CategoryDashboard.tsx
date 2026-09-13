@@ -7,10 +7,12 @@ import { KeelMascot } from "@/components/dashboard/KeelMascot";
 import { useKeel } from "@/components/keel/KeelContext";
 import { CATEGORY_BY_ID, type CategoryId } from "@/lib/market/categories";
 import { thoughtsSchema, splitLead } from "@/lib/dashboard/api";
+import { Disclaimer } from "./Disclaimer";
 import { RankedRow } from "./RankedRow";
 import { TrendingStrip } from "./TrendingStrip";
 import { useCategoryData } from "./useCategoryData";
-import { RecentlyAnalyzed, TabAnalyzer } from "./TabAnalyzer";
+import { RefreshControl } from "./RefreshControl";
+import { RecentlyAnalyzed } from "./TabAnalyzer";
 
 type ThoughtsStatus = "idle" | "loading" | "ready" | "error" | "unavailable";
 
@@ -90,25 +92,11 @@ export function CategoryDashboard({ categoryId }: { categoryId: CategoryId }) {
           <span aria-current="page">{category.label}</span>
         </nav>
         <div className="header-actions">
-          <TabAnalyzer />
-          {data && (
-            <span className={`data-status ${data.stale ? "is-stale" : ""}`}>
-              <i aria-hidden="true" />
-              {data.sample
-                ? "Example prices"
-                : data.refreshing
-                  ? "Refreshing prices…"
-                  : data.stale
-                    ? "Prices may be a little old"
-                    : `Prices as of ${new Date(data.fetchedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`}
-            </span>
-          )}
-          <button type="button" className="text-button" onClick={refresh} disabled={status === "loading"}>
-            <Icon name="play" size={14} /> Refresh
-          </button>
+          <RefreshControl />
         </div>
       </header>
 
+      <Disclaimer />
 
       <RecentlyAnalyzed />
 
@@ -121,7 +109,7 @@ export function CategoryDashboard({ categoryId }: { categoryId: CategoryId }) {
             <button type="button" className="button primary small" onClick={refresh}>
               Retry
             </button>
-            <Link href="/dashboard/broad-funds?demo=1" className="text-button">
+            <Link href="/dashboard/funds?demo=1" className="text-button">
               Explore an example
             </Link>
           </div>
