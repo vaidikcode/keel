@@ -10,6 +10,7 @@ import { thoughtsSchema, splitLead } from "@/lib/dashboard/api";
 import { RankedRow } from "./RankedRow";
 import { TrendingStrip } from "./TrendingStrip";
 import { useCategoryData } from "./useCategoryData";
+import { RecentlyAnalyzed, TabAnalyzer } from "./TabAnalyzer";
 
 type ThoughtsStatus = "idle" | "loading" | "ready" | "error" | "unavailable";
 
@@ -89,6 +90,7 @@ export function CategoryDashboard({ categoryId }: { categoryId: CategoryId }) {
           <span aria-current="page">{category.label}</span>
         </nav>
         <div className="header-actions">
+          <TabAnalyzer />
           {data && (
             <span className={`data-status ${data.stale ? "is-stale" : ""}`}>
               <i aria-hidden="true" />
@@ -107,6 +109,8 @@ export function CategoryDashboard({ categoryId }: { categoryId: CategoryId }) {
         </div>
       </header>
 
+
+      <RecentlyAnalyzed />
 
       {status === "error" && !data ? (
         <div className="empty-state" role="alert">

@@ -8,12 +8,14 @@ import {
   profileV3,
   storedAnswersValidator,
   turnValidator,
+  analyzedAssetValidator,
 } from "./experienceValidators";
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { migrateProfile, profileSchema } from "../lib/onboarding/questions";
 import { ALL_ASSET_IDS } from "../lib/market/categories";
 import { deriveSignals, intakeFromProfile, intakeSchema } from "../lib/onboarding/signals";
+import { analyzedAssetSchema } from "../lib/dashboard/analyzedAsset";
 
 const MAX_SESSION = 80;
 
@@ -247,5 +249,29 @@ export const toggleSaved = mutation({
       : [...saved, args.assetId].slice(0, 24);
     await ctx.db.patch("profiles", p._id, { savedAssets: next });
     return next;
+  },
+});
+
+export const recordAnalyzedAsset = mutation({
+  args: {
+    sessionId: v.string(),
+    asset: analyzedAssetValidator,
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const sessionId = clip(args.sessionId, MAX_SESSION);
+    const asset = analyzedAssetSchema.parse(args.asset);
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_sessionId", (q) => q.eq("sessionId", sessionId))
+      .first();
+    if (!profile) return false;
+    const previous = (profile.analyzedAssets ?? []).filter(
+      (item) => item.id !== asset.id,
+    );
+    await ctx.db.patch("profiles", profile._id, {
+      analyzedAssets: [asset, ...previous].slice(0, 12),
+    });
+    return true;
   },
 });
