@@ -39,9 +39,6 @@ export const profileSchema = z.object({
   interests: z.array(categoryIdSchema).max(7),
   lossTolerance: lossToleranceSchema,
   income: z.enum(["stable", "variable", "none", "unknown"]),
-  // Where this person already reads about money. Optional on both sides: Zod
-  // strips unknown keys, so a field missing here would be dropped on write.
-  newsSources: z.array(z.string().min(1).max(60)).max(8).optional(),
 });
 export type Profile = z.infer<typeof profileSchema>;
 export type LossTolerance = Profile["lossTolerance"];
