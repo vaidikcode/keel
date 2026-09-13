@@ -1,6 +1,5 @@
 "use client";
 import Link from "next/link";
-import { useUser } from "@clerk/nextjs";
 import { Icon } from "@/components/ui/Icon";
 import { CATEGORIES, type CategoryId } from "@/lib/market/categories";
 import {
@@ -12,7 +11,6 @@ import {
 } from "@/lib/market/navGroups";
 import { useKeel } from "@/components/keel/KeelContext";
 import { TabAnalyzer } from "@/components/dashboard/TabAnalyzer";
-import { LogOutButton } from "@/components/auth/AuthControls";
 
 const ICONS: Record<CategoryId, "layers" | "shield" | "building" | "rocket" | "coins" | "drop" | "globe"> = {
   "broad-funds": "layers",
@@ -36,7 +34,6 @@ export function CategorySidebar({
   activeTab?: string | null;
 }) {
   const keel = useKeel();
-  const { user } = useUser();
   const activeView: string | null =
     activeId && CATEGORIES.some((c) => c.id === activeId)
       ? viewForCategory(activeId as CategoryId)
@@ -99,26 +96,17 @@ export function CategorySidebar({
             <span className="tiny-avatar" aria-hidden="true">k</span>
             <small>Example mode</small>
           </div>
-          <LogOutButton variant="sidebar" />
         </div>
       ) : (
         <div className="sidebar-account">
           <Link href="/account" className="sidebar-bottom is-link">
-            {user?.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- Clerk serves this from its own CDN.
-              <img className="tiny-avatar" src={user.imageUrl} alt="" width={26} height={26} />
-            ) : (
-              <span className="tiny-avatar" aria-hidden="true">
-                {(user?.firstName ?? user?.username ?? "k").slice(0, 1).toLowerCase()}
-              </span>
-            )}
+            <span className="tiny-avatar" aria-hidden="true">k</span>
             <small>
-              <strong>{user?.firstName ?? user?.username ?? "Your account"}</strong>
-              Answers and sign-in
+              <strong>Your answers</strong>
+              Edit what Keel ranks with
             </small>
             <Icon name="chevron" size={14} />
           </Link>
-          <LogOutButton variant="sidebar" />
         </div>
       )}
     </aside>

@@ -1,17 +1,11 @@
-import { generateText, Output } from "ai";
 import { z } from "zod";
 import { convexForRequest } from "@/lib/server/convexClient";
 import { api } from "@/convex/_generated/api";
-import { KEEL_MODEL } from "@/lib/ai/model";
+import { demoThoughts } from "@/lib/ai/demo";
 import { migrateProfile } from "@/lib/onboarding/questions";
-import { CATEGORY_BY_ID, isCategoryId, type CategoryId } from "@/lib/market/categories";
-import { rankSnapshot } from "@/lib/market/rank";
-import type { SnapshotDoc } from "@/lib/market/refresh";
-import { THOUGHTS_SYSTEM, thoughtsInput, thoughtsOutputSchema } from "@/lib/market/thoughtsPrompt";
-import { isHttpsUrl } from "@/lib/dashboard/marketLookup";
+import { isCategoryId, type CategoryId } from "@/lib/market/categories";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
 
 const inputSchema = z.object({
   sessionId: z.string().min(1).max(80),
@@ -44,29 +38,8 @@ export async function POST(request: Request) {
         thoughts: { paragraphs: cached.paragraphs, because: cached.because, sourceIds: cached.sourceIds },
         cached: true,
       });
-    if (!process.env.AI_GATEWAY_API_KEY && !process.env.VERCEL)
-      return Response.json({ error: "Keel can't write new thoughts right now." }, { status: 503 });
-
     const profile = migrateProfile(profileDoc.profileV3 ?? profileDoc.profileV2 ?? profileDoc.answers);
-    const { assets, capacity } = rankSnapshot(snapshot as SnapshotDoc, profile);
-    if (!capacity) throw new Error("No capacity");
-    const category = CATEGORY_BY_ID[categoryId];
-    const allowed = new Set(snapshot.facts.map((f) => f.url).filter(isHttpsUrl));
-    const result = await generateText({
-      model: KEEL_MODEL,
-      maxRetries: 0,
-      abortSignal: AbortSignal.timeout(25000),
-      output: Output.object({ schema: thoughtsOutputSchema }),
-      system: THOUGHTS_SYSTEM,
-      prompt: JSON.stringify(thoughtsInput({ category, assets, capacity, profile, facts: snapshot.facts })),
-    });
-    const out = thoughtsOutputSchema.safeParse(result.output);
-    if (!out.success) throw new Error("Model returned unusable thoughts.");
-    const thoughts = {
-      paragraphs: out.data.paragraphs,
-      because: out.data.because,
-      sourceIds: out.data.sourceIds.filter((id) => allowed.has(id)),
-    };
+    const thoughts = demoThoughts(profile);
     await client.mutation(api.thoughts.put, { ...key, ...thoughts });
     return Response.json({ thoughts, cached: false });
   } catch {

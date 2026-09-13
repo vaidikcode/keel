@@ -1,5 +1,4 @@
 "use client";
-import { useAuth } from "@clerk/nextjs";
 import { useMutation, useConvex } from "convex/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -195,13 +194,13 @@ function Choices({
 
 export function Onboarding() {
   const router = useRouter(),
-    { isLoaded, userId } = useAuth(),
     client = useConvex(),
     save = useMutation(api.profiles.saveExperience);
   const [profile, setProfile] = useState<Profile>(defaultProfile);
   const [intake, setIntake] = useState<Intake>(defaultIntake);
   const [step, setStep] = useState(-1),
     [ready, setReady] = useState(false),
+    [hasSaved, setHasSaved] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [help, setHelp] = useState(false);
@@ -210,7 +209,6 @@ export function Onboarding() {
   const total = 5;
 
   useEffect(() => {
-    if (!isLoaded) return;
     let active = true;
     async function restore() {
       try {
@@ -225,35 +223,12 @@ export function Onboarding() {
           // should always show the landing page rather than dropping someone
           // back into the middle of a form they half remember.
         }
-        setReady(true);
         const params = new URLSearchParams(location.search);
-        if (userId && restored && params.has("continue")) {
-          const savedIntake = intakeSchema.safeParse(draft?.intake);
-          await save({
-            sessionId: userId,
-            profile: savedIntake.success
-              ? applyIntakeToProfile(restored, savedIntake.data)
-              : restored,
-            intake: savedIntake.success ? savedIntake.data : undefined,
-          });
-          localStorage.removeItem(DRAFT);
-          if (active)
-            router.replace(
-              `/dashboard/${(savedIntake.success ? applyIntakeToProfile(restored, savedIntake.data) : restored).interests[0] ?? "broad-funds"}`,
-            );
-          return;
-        }
-        // Coming back from sign-up: go straight into the questions rather than
-        // making someone press Get started a second time.
-        if (userId && params.has("start")) {
-          interacted.current = true;
-          setStep(0);
-          router.replace("/");
-        }
         const existing = await client.query(api.profiles.getBySession, {
-          sessionId: userId ?? readSessionId(),
+          sessionId: readSessionId(),
         });
         if (!active) return;
+        if (existing) setHasSaved(true);
         if (!draft && existing && !interacted.current) {
           setProfile(migrateProfile(existing.profileV2 ?? existing.answers));
           const parsed = intakeSchema.safeParse(existing.intake);
@@ -269,7 +244,7 @@ export function Onboarding() {
     return () => {
       active = false;
     };
-  }, [client, isLoaded, router, save, userId]);
+  }, [client]);
 
   // Country is only a default. It is guessed without a permission prompt and
   // without sending the visitor's IP to a third party, and stays editable.
@@ -334,7 +309,7 @@ export function Onboarding() {
       // Answers are keyed to the account once there is one, so they follow the
       // person rather than the browser.
       await save({
-        sessionId: userId ?? readSessionId(),
+        sessionId: readSessionId(),
         profile: merged,
         intake,
       });
@@ -380,9 +355,9 @@ export function Onboarding() {
           <div className="floating-mark-end">
             <Link
               className="button secondary demo-button"
-              href={userId ? "/dashboard" : "/dashboard?demo=1"}
+              href={hasSaved ? "/dashboard" : "/dashboard?demo=1"}
             >
-              {userId ? "DASHBOARD" : "DEMO"}
+              {hasSaved ? "DASHBOARD" : "DEMO"}
             </Link>
           </div>
         ) : null}
@@ -402,20 +377,15 @@ export function Onboarding() {
               Meet Keel. Your curious companion for making sense of investing,
               one small step at a time.
             </p>
+            <p className="hackathon-note" role="note">
+              This was a hackathon project. We removed live LLM calls to reduce
+              cost — Keel now returns a demo reply.
+            </p>
             <div className="welcome-actions">
               <RocketButton
-                disabled={!ready || !isLoaded}
+                disabled={!ready}
                 onLaunch={() => {
                   interacted.current = true;
-                  // Frictionless: an account is created first so answers
-                  // belong to a person, then the questions open immediately.
-                  if (!userId) {
-                    router.push(
-                      "/sign-up?redirect_url=" +
-                        encodeURIComponent("/?start=1"),
-                    );
-                    return;
-                  }
                   setStep(0);
                 }}
               >

@@ -33,7 +33,7 @@ export function KindDashboard({ kind }: { kind: AssetKind }) {
     return (
       <main className="loading-page">
         <KeelMascot mood="thinking" size={120} />
-        <h1>Signing you in…</h1>
+        <h1>Loading your session…</h1>
       </main>
     );
 

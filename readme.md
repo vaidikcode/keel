@@ -19,7 +19,9 @@ Keep the backend running. In a second terminal:
 bun run dev
 ```
 
-Open the URL printed by Next.js. `/` contains onboarding; `/dashboard` is the saved user's workspace; `/dashboard?demo=1` is an explicitly illustrative example with no paid generation calls.
+Open the URL printed by Next.js. `/` contains onboarding; `/dashboard` is the saved user's workspace; `/dashboard?demo=1` is an explicitly illustrative example with made-up prices.
+
+Keel was a hackathon project. Live LLM calls were removed to reduce cost, so questions, thoughts, and tab analysis now return canned demo replies. There is no sign-in.
 
 Never copy another developer's `.env.local`, commit `.convex/`, or put a production deploy key on a laptop. Each local deployment has its own data.
 
@@ -28,12 +30,10 @@ Never copy another developer's `.env.local`, commit `.convex/`, or put a product
 See [.env.example](.env.example). All provider credentials stay server-side.
 
 - `NEXT_PUBLIC_CONVEX_URL`: local Convex URL created during setup.
-- `AI_GATEWAY_API_KEY`: enables Keel's thoughts and answers to questions. Without it, rankings, charts and scenarios still work and the hero card falls back to rule-based reasons.
-- `TAVILY_API_KEY`: optional web search for recent facts per category and asset, plus the assistant's `searchWeb` tool. Without it, fact sections are empty and responses carry a `tavily:off` warning.
+- `TAVILY_API_KEY`: optional web search for recent facts per category and asset. Without it, fact sections are empty and responses carry a `tavily:off` warning.
 - `FINNHUB_API_KEY`: optional company profiles (market value) and dated company news.
 - `SEC_USER_AGENT`: your valid contact string for SEC company facts. Ticker to CIK mapping is looked up from SEC's public list and cached for a week.
 - `COINGECKO_API_KEY`: optional demo key for crypto market data.
-- `KEEL_MODEL`: optional model string behind the AI Gateway (default `openai/gpt-4o-mini`).
 
 Daily price history for every asset in a category comes from one batched Yahoo Finance call (with a per-symbol fallback), crypto market data from one CoinGecko call, and company size from Finnhub. Snapshots are cached in Convex and shared by every user for 45 minutes (3 hours outside US market hours). Unavailable providers produce missing-data states, never fabricated history.
 

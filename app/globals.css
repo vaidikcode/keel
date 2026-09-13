@@ -345,6 +345,17 @@ strong {
   line-height: 1.75;
   color: var(--muted);
 }
+.welcome-copy .hackathon-note {
+  max-width: 420px;
+  margin-top: 18px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #efdfae;
+  background: #fff8e6;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #6b5416;
+}
 .welcome-actions {
   display: flex;
   align-items: flex-start;
