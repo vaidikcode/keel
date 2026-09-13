@@ -31,6 +31,7 @@ const paths = {
   external: "M14 4h6v6m0-6L10 14M10 4H4v16h16v-6",
   info: "M12 8h.01M11 12h1v5h1 M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20",
   refresh: "M20.5 12a8.5 8.5 0 1 1-2.49-6.01M20.5 4v5.5H15",
+  logout: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
 };
 export function Icon({
   name,

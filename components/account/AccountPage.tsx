@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { UserProfile } from "@clerk/nextjs";
 import { AppShell } from "@/components/app/AppShell";
+import { LogOutButton } from "@/components/auth/AuthControls";
 import { Icon } from "@/components/ui/Icon";
 import { KeelMascot } from "@/components/dashboard/KeelMascot";
 import { useKeel } from "@/components/keel/KeelContext";
@@ -36,6 +37,9 @@ export function AccountPage() {
           <Icon name="chevron" size={12} />
           <span aria-current="page">Account</span>
         </nav>
+        <div className="header-actions">
+          <LogOutButton />
+        </div>
       </header>
 
       <div className="account-tabs" role="tablist" aria-label="Account sections">
@@ -81,9 +85,21 @@ export function AccountPage() {
       ) : (
         <div id="panel-account" role="tabpanel" aria-labelledby="tab-account" className="account-panel">
           {keel.demo ? (
-            <p className="fine-print">Example mode has no account to manage.</p>
+            <div className="account-session">
+              <p className="fine-print">Example mode has no account to manage.</p>
+              <LogOutButton variant="button" />
+            </div>
           ) : (
-            <UserProfile routing="hash" />
+            <>
+              <section className="account-session" aria-labelledby="session-heading">
+                <h2 id="session-heading">This browser</h2>
+                <p className="fine-print">
+                  Sign out of Keel on this device. Your answers stay with the account.
+                </p>
+                <LogOutButton variant="button" />
+              </section>
+              <UserProfile routing="hash" />
+            </>
           )}
         </div>
       )}

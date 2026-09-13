@@ -1719,6 +1719,10 @@ strong {
   align-items: center;
   gap: 14px;
 }
+.app-header .logout-action {
+  min-height: 44px;
+  padding: 8px 4px;
+}
 .app-header .data-status {
   display: inline-flex;
   align-items: center;
@@ -2707,8 +2711,21 @@ strong {
     margin: 0 0 0 auto;
     flex-direction: row;
   }
-  .sidebar-bottom {
+  .sidebar-bottom,
+  .sidebar-account {
     order: 2;
+  }
+  .sidebar-account {
+    flex-direction: row;
+    align-items: center;
+    padding-top: 0;
+    border-top: 0;
+    gap: 4px;
+  }
+  .sidebar-logout {
+    min-height: 40px;
+    padding: 8px 10px;
+    white-space: nowrap;
   }
   .app-main {
     padding: 16px 16px 130px;
@@ -2838,8 +2855,8 @@ strong {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
+  padding-top: 0;
+  border-top: 0;
 }
 .app-sidebar .sidebar-bottom small {
   font-size: 11px;
@@ -5313,6 +5330,67 @@ strong {
 }
 .account-save-note.is-error {
   color: var(--coral);
+}
+
+.account-session {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 18px 18px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.account-session h2 {
+  font-size: 16px;
+  font-weight: 600;
+}
+.logout-action {
+  color: var(--coral);
+}
+.logout-action:hover {
+  color: #944c3e;
+}
+.button.secondary.logout-action {
+  color: var(--coral);
+  border-color: #e0b7ae;
+  box-shadow: 0 4px 0 #e0b7ae;
+}
+.button.secondary.logout-action:hover:not(:disabled) {
+  background: #f8eeec;
+  box-shadow: 0 2px 0 #e0b7ae;
+}
+
+/* Account + log out sit together at the foot of the sidebar, spatially
+   separate from the section nav above. */
+.sidebar-account {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.sidebar-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--coral);
+  font-size: 12.5px;
+  font-weight: 500;
+  text-align: left;
+  transition: background 0.18s var(--ease-expo-out);
+}
+.sidebar-logout:hover {
+  background: #f8eeec;
+}
+.sidebar-logout:focus-visible {
+  outline: 2px solid var(--coral);
+  outline-offset: 2px;
 }
 
 /* The account block at the foot of the sidebar is one link, not a button

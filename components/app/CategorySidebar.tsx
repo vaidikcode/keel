@@ -12,6 +12,7 @@ import {
 } from "@/lib/market/navGroups";
 import { useKeel } from "@/components/keel/KeelContext";
 import { TabAnalyzer } from "@/components/dashboard/TabAnalyzer";
+import { LogOutButton } from "@/components/auth/AuthControls";
 
 const ICONS: Record<CategoryId, "layers" | "shield" | "building" | "rocket" | "coins" | "drop" | "globe"> = {
   "broad-funds": "layers",
@@ -93,26 +94,32 @@ export function CategorySidebar({
       </div>
 
       {keel.demo ? (
-        <div className="sidebar-bottom">
-          <span className="tiny-avatar" aria-hidden="true">k</span>
-          <small>Example mode</small>
+        <div className="sidebar-account">
+          <div className="sidebar-bottom">
+            <span className="tiny-avatar" aria-hidden="true">k</span>
+            <small>Example mode</small>
+          </div>
+          <LogOutButton variant="sidebar" />
         </div>
       ) : (
-        <Link href="/account" className="sidebar-bottom is-link">
-          {user?.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- Clerk serves this from its own CDN.
-            <img className="tiny-avatar" src={user.imageUrl} alt="" width={26} height={26} />
-          ) : (
-            <span className="tiny-avatar" aria-hidden="true">
-              {(user?.firstName ?? user?.username ?? "k").slice(0, 1).toLowerCase()}
-            </span>
-          )}
-          <small>
-            <strong>{user?.firstName ?? user?.username ?? "Your account"}</strong>
-            Answers and sign-in
-          </small>
-          <Icon name="chevron" size={14} />
-        </Link>
+        <div className="sidebar-account">
+          <Link href="/account" className="sidebar-bottom is-link">
+            {user?.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- Clerk serves this from its own CDN.
+              <img className="tiny-avatar" src={user.imageUrl} alt="" width={26} height={26} />
+            ) : (
+              <span className="tiny-avatar" aria-hidden="true">
+                {(user?.firstName ?? user?.username ?? "k").slice(0, 1).toLowerCase()}
+              </span>
+            )}
+            <small>
+              <strong>{user?.firstName ?? user?.username ?? "Your account"}</strong>
+              Answers and sign-in
+            </small>
+            <Icon name="chevron" size={14} />
+          </Link>
+          <LogOutButton variant="sidebar" />
+        </div>
       )}
     </aside>
   );
