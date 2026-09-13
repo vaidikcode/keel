@@ -10,6 +10,8 @@ import { RankedCard } from "./RankedCard";
 import { RefreshControl } from "./RefreshControl";
 import { useAllAssets } from "./useAllAssets";
 import { capacityFor } from "@/lib/market/fit";
+import { RiskBar } from "./RiskBar";
+import { MixPie, buildMix } from "./MixPie";
 import { CATEGORY_BY_ID } from "@/lib/market/categories";
 
 /**
@@ -27,6 +29,7 @@ export function PortfolioDashboard() {
     .filter((i): i is NonNullable<typeof i> => Boolean(i))
     .map((i, index) => ({ ...i, asset: { ...i.asset, rank: index + 1 } }));
 
+  const assetsOnly = mine.map((m) => m.asset);
   const capacity = keel.profile ? capacityFor(keel.profile) : null;
   const withRisk = mine.filter((m) => m.asset.risk);
   const averageRisk = withRisk.length
@@ -71,42 +74,49 @@ export function PortfolioDashboard() {
             <Disclaimer />
           </p>
 
-          {capacity && averageRisk !== null && (
+          {averageRisk !== null && (
             <section className="portfolio-fit" aria-labelledby="portfolio-fit-heading">
               <div className="section-head">
                 <div>
-                  <h2 id="portfolio-fit-heading">How this set sits with you</h2>
+                  <h2 id="portfolio-fit-heading">Risk assessment</h2>
                   <p className="fine-print">
-                    Average risk across what you saved, against the capacity your answers
-                    suggest. Neither number predicts a price.
+                    The average risk score across what you saved, on Keel&rsquo;s own 0&ndash;100
+                    scale. Point at a band to see what it means. It describes how much these prices
+                    have moved, and predicts nothing.
                   </p>
                 </div>
               </div>
-              <div className="portfolio-gauges">
-                <div>
-                  <span className="gauge-label">Average risk of your list</span>
-                  <div className="risk-meter">
-                    <span style={{ width: `${averageRisk}%` }} />
-                  </div>
-                  <b>{averageRisk} / 100</b>
-                </div>
-                <div>
-                  <span className="gauge-label">Capacity from your answers</span>
-                  <div className="risk-meter">
-                    <span style={{ width: `${capacity.score}%` }} />
-                  </div>
-                  <b>{capacity.score} / 100</b>
-                </div>
+
+              <div className="risk-assessment">
+                <RiskBar
+                  score={averageRisk}
+                  caption={
+                    capacity && averageRisk > capacity.score + 10
+                      ? "This set moves around more than your answers suggest you are comfortable with. Worth a look, not an alarm."
+                      : capacity && averageRisk < capacity.score - 20
+                        ? "This set is steadier than your answers suggest you need. That is a choice, not a mistake."
+                        : "This set is broadly in line with what your answers suggest."
+                  }
+                />
               </div>
-              <p className="fine-print">
-                {averageRisk > capacity.score + 10
-                  ? "Your list moves around more than your answers suggest you are comfortable with. Worth a look, not an alarm."
-                  : averageRisk < capacity.score - 20
-                    ? "Your list is steadier than your answers suggest you need. That is a choice, not a mistake."
-                    : "Your list is broadly in line with what your answers suggest."}
-              </p>
             </section>
           )}
+
+          <section className="portfolio-diversity" aria-labelledby="diversity-heading">
+            <div className="section-head">
+              <div>
+                <h2 id="diversity-heading">Diversity</h2>
+                <p className="fine-print">
+                  What your saved list is made of. Spreading money across different kinds of
+                  investment matters because they rarely fall at the same time or by the same
+                  amount &mdash; when one is having a bad year, another may not be, so the set as a
+                  whole tends to swing less than its most volatile part. A list that is all one
+                  kind has no such cushion. Point at a slice for its numbers.
+                </p>
+              </div>
+            </div>
+            <MixPie slices={buildMix(assetsOnly)} />
+          </section>
 
           <Carousel
             title="Saved"

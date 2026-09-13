@@ -45,7 +45,10 @@ export function RankedCard({
    * the left edge.
    */
   function explain(metric: CardMetric, row: HTMLElement) {
-    keel.say(`${metric.definition}\n\nWhere this comes from: ${metric.source}`, false);
+    keel.say(
+      `${metric.definition}\n\n${metric.alsoCalled}\n\nWhere this comes from: ${metric.source}`,
+      false,
+    );
     const overlay = document.querySelector<HTMLElement>(".keel-overlay");
     if (!overlay) return;
 

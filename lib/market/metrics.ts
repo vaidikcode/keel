@@ -22,6 +22,12 @@ export type CardMetric = {
   tone: "positive" | "negative" | null;
   /** What the figure means. The definition only — no reading of this company. */
   definition: string;
+  /**
+   * What the finance industry calls the same thing. Keel renames measures into
+   * plain words, which is only helpful if someone can still recognise the term
+   * when they meet it somewhere else.
+   */
+  alsoCalled: string;
   /** Where the number came from, named plainly. */
   source: string;
   /** The provider's own page, when there is one to link to. */
@@ -55,6 +61,7 @@ export function cardMetrics(asset: RankedAsset): CardMetric[] {
   return [
     {
       key: "steadiness",
+      alsoCalled: "Elsewhere this is called volatility, or the annualised standard deviation of returns — often written as sigma. A fund factsheet may print it as \u201cannualised volatility, 1 year\u201d.",
       label: "Steadiness",
       term: "Annualised volatility",
       value: vol === null ? "—" : `${plainPct(vol)} a year`,
@@ -66,6 +73,7 @@ export function cardMetrics(asset: RankedAsset): CardMetric[] {
     },
     {
       key: "direction",
+      alsoCalled: "Elsewhere this is called momentum, or the trailing one-month return. Charting tools show the same idea as a moving-average crossover or RSI.",
       label: "Recent direction",
       term: "30-day price change",
       value: pctText(asset.change30dPct),
@@ -77,6 +85,7 @@ export function cardMetrics(asset: RankedAsset): CardMetric[] {
     },
     {
       key: "year",
+      alsoCalled: "Elsewhere this is the trailing twelve-month return, written TTM, or simply the 1-year price return. A \u201ctotal return\u201d figure elsewhere will be higher, because it adds dividends back in.",
       label: "One year growth",
       term: "12-month price change",
       value: pctText(asset.change1yPct),
@@ -88,6 +97,7 @@ export function cardMetrics(asset: RankedAsset): CardMetric[] {
     },
     {
       key: "risk",
+      alsoCalled: "This one has no single industry name, because it is Keel\u2019s own blend. Its ingredients do: volatility (sigma), maximum drawdown, beta, and market capitalisation. The nearest familiar things are a fund risk rating or a Morningstar Risk score, both built differently.",
       label: "Risk",
       term: "Keel risk score",
       value: risk ? `${risk.score} · ${riskLabelText[risk.label]}` : "—",
@@ -99,6 +109,7 @@ export function cardMetrics(asset: RankedAsset): CardMetric[] {
     },
     {
       key: "fit",
+      alsoCalled: "In the industry this is the job of a suitability assessment, or risk profiling — what a regulated adviser must complete before recommending anything. Keel\u2019s version is a rough rule-based stand-in, not the real thing.",
       label: "Fit for you",
       term: "Fit score",
       value: asset.fit ? `${asset.fit.score} / 100` : "—",

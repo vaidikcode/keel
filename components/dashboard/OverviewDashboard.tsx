@@ -12,6 +12,11 @@ import { RefreshControl } from "./RefreshControl";
 import { TrendingSection } from "./TrendingSection";
 import { useAllAssets } from "./useAllAssets";
 import { rankObjectively } from "@/lib/market/objective";
+import { rankBalanced } from "@/lib/market/balanced";
+import { MarketTrends } from "./MarketTrends";
+import { RelevantNews } from "./RelevantNews";
+import { StrategyBrief } from "./StrategyBrief";
+import { useMarketExtras } from "./useMarketExtras";
 
 /**
  * One place that spans all three asset classes, rather than making someone open
@@ -21,6 +26,7 @@ import { rankObjectively } from "@/lib/market/objective";
 export function OverviewDashboard() {
   const keel = useKeel();
   const { items, loading } = useAllAssets();
+  const { index, news } = useMarketExtras();
 
   useEffect(() => {
     keel.setPageContext({ page: "dashboard", categoryId: "broad-funds" });
@@ -29,6 +35,7 @@ export function OverviewDashboard() {
   }, []);
 
   const top = rankObjectively(items.map((i) => i.asset), 10);
+  const balanced = rankBalanced(items.map((i) => i.asset), 10);
   const byFit = [...items]
     .sort((a, b) => (b.asset.fit?.score ?? -1) - (a.asset.fit?.score ?? -1))
     .slice(0, 12)
@@ -58,6 +65,24 @@ export function OverviewDashboard() {
       <p className="kind-lead">
         Everything Keel follows, across stocks, funds and crypto, in one place. <Disclaimer />
       </p>
+
+      <MarketTrends index={index} country={keel.profile?.country ?? "US"} />
+
+      {keel.profile && (
+        <StrategyBrief profile={keel.profile} sample={items[0]?.asset ?? null} />
+      )}
+
+      <Carousel
+        title="Top 10 most balanced"
+        note="Across stocks, funds and crypto: middling risk rather than the calmest or the wildest, a steady year behind it, and a shallow worst fall. The same order for everyone."
+        resetKey={balanced.map((a) => a.id).join()}
+      >
+        {loading
+          ? skeletons
+          : balanced.map((a) => (
+              <RankedCard key={a.id} asset={a} categoryId={homeOf(a.id)} total={balanced.length} />
+            ))}
+      </Carousel>
 
       <Carousel
         title="Top 10 overall"
@@ -89,6 +114,8 @@ export function OverviewDashboard() {
       </Carousel>
 
       {!loading && <TrendingSection kind="stocks" assets={items} titleOverride="Trending now" />}
+
+      <RelevantNews news={news} />
 
       {!loading && items.length === 0 && (
         <div className="empty-state">

@@ -10,12 +10,18 @@ export function PriceChart({
   sample,
   paused,
   onExplain,
+  unit = "usd",
 }: {
   assets: Investment[];
   days: number;
   sample: boolean;
   paused: boolean;
   onExplain: (text: string) => void;
+  /**
+   * A stock has a price in dollars; a market index has a level in points and no
+   * currency at all. Labelling NIFTY 50 as "$23,398" would be wrong twice over.
+   */
+  unit?: "usd" | "points";
 }) {
   const id = useId().replaceAll(":", "");
   const series = useMemo(() => alignedSeries(assets, days), [assets, days]);
@@ -73,8 +79,7 @@ export function PriceChart({
     });
   const price = (n: number) =>
     new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
+      ...(unit === "usd" ? { style: "currency" as const, currency: "USD" } : {}),
       maximumFractionDigits: n > 10000 ? 0 : 2,
     }).format(n);
   const last = data[0].points[index].value;
@@ -88,7 +93,9 @@ export function PriceChart({
               ? "ILLUSTRATIVE VALUE"
               : compare
                 ? "VALUE OF A $1,000 START"
-                : "DAILY PRICE · USD"}
+                : unit === "points"
+                  ? "INDEX LEVEL · POINTS"
+                  : "DAILY PRICE · USD"}
           </span>
           <div className="chart-value">
             {price(last)}{" "}
@@ -261,7 +268,9 @@ export function PriceChart({
       <p className="fine-print">
         {sample
           ? "Sample data · Made-up paths to demonstrate the chart. Not actual returns."
-          : "Daily prices · USD · Excludes dividends, fees and taxes. Past performance does not predict future results."}
+          : unit === "points"
+            ? "Daily index level · Points, not a currency · An index tracks a market, and cannot itself be bought. Past performance does not predict future results."
+            : "Daily prices · USD · Excludes dividends, fees and taxes. Past performance does not predict future results."}
       </p>
       <details className="chart-table">
         <summary>View chart data as a table</summary>
@@ -271,7 +280,9 @@ export function PriceChart({
               <tr>
                 <th>Date</th>
                 {data.map((s) => (
-                  <th key={s.id}>{s.ticker} (USD)</th>
+                  <th key={s.id}>
+                    {s.ticker} ({unit === "points" ? "points" : "USD"})
+                  </th>
                 ))}
               </tr>
             </thead>

@@ -227,7 +227,7 @@ strong {
   color: var(--harbor);
 }
 .fine-print {
-  font-size: 12.5px;
+  font-size: 13.5px;
   line-height: 1.6;
   color: var(--muted);
 }
@@ -5556,5 +5556,439 @@ img.tiny-avatar {
   }
   .metric-row dd {
     font-size: 15px;
+  }
+}
+
+/* ── Overview: home market, strategy and headlines ──────────────────────────*/
+.market-trends,
+.strategy-brief,
+.relevant-news {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.trend-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 18px 22px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.trend-figures {
+  display: flex;
+  gap: 34px;
+  flex-wrap: wrap;
+}
+.trend-figures b {
+  display: block;
+  margin-top: 4px;
+  font-size: 24px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The reading of someone's own answers, and how to read each measure. */
+.strategy-headline {
+  padding: 18px 22px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.strategy-headline strong {
+  display: block;
+  font-family: var(--font-lateral);
+  font-weight: 700;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.strategy-headline p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #3e5a6b;
+  max-width: 78ch;
+}
+.strategy-from {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+}
+.strategy-from li {
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--harbor-wash);
+  color: var(--harbor-deep);
+  font-size: 12px;
+}
+.strategy-targets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+.strategy-targets > li {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.target-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 7px;
+}
+.target-head strong {
+  font-family: var(--font-lateral);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.target-aim {
+  margin-left: auto;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--harbor-wash);
+  color: var(--harbor-deep);
+}
+.target-aim.is-low {
+  background: #e4f2ea;
+  color: #2d6a51;
+}
+.target-aim.is-high {
+  background: #f7ecd9;
+  color: #7f5a1f;
+}
+.target-look {
+  margin: 0 0 6px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+.target-because {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.target-jargon {
+  margin-top: 9px;
+  border-top: 1px dashed var(--line);
+  padding-top: 8px;
+}
+.target-jargon summary {
+  font-size: 12px;
+  color: var(--harbor-deep);
+  cursor: pointer;
+}
+.target-jargon p {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.target-alias {
+  font-style: italic;
+}
+
+/* Headlines pass through untouched, with the publisher named. */
+.news-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 10px;
+}
+.news-list a {
+  display: block;
+  padding: 13px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+  transition: border-color 0.18s var(--ease-expo-out);
+}
+.news-list a:hover {
+  border-color: var(--harbor);
+}
+.news-ticker {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--harbor-wash);
+  color: var(--harbor-deep);
+  font-size: 11px;
+  font-weight: 600;
+}
+.news-headline {
+  display: block;
+  font-size: 13.5px;
+  line-height: 1.45;
+  margin-bottom: 6px;
+}
+.news-list small {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ── Portfolio: risk assessment and the mix ─────────────────────────────────
+   Display type per design.md — Antonio 700, uppercase, sub-1.0 leading. */
+.portfolio-diversity {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.portfolio-diversity .mix-pie {
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  gap: 42px;
+}
+.portfolio-fit .section-head h2,
+.portfolio-diversity .section-head h2 {
+  font-family: var(--font-lateral);
+  font-weight: 700;
+  font-size: 44px;
+  line-height: 0.92;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.risk-assessment {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 34px;
+  padding: 22px 24px 24px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+.risk-bar {
+  flex: 1 1 340px;
+  min-width: 0;
+}
+.risk-bar-readout {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+.risk-bar-readout strong {
+  font-family: var(--font-lateral);
+  font-weight: 700;
+  font-size: 54px;
+  line-height: 0.86;
+  letter-spacing: -0.02em;
+}
+.risk-bar-readout span {
+  font-size: 13.5px;
+  color: var(--muted);
+}
+/* Five bands the reader can actually point at, rather than one opaque fill. */
+.risk-bar-track {
+  position: relative;
+  display: flex;
+  gap: 3px;
+  height: 34px;
+}
+.risk-band {
+  position: relative;
+  flex-basis: 0;
+  border: 0;
+  padding: 0;
+  border-radius: 5px;
+  cursor: help;
+  opacity: 0.4;
+  transition:
+    opacity 0.18s var(--ease-expo-out),
+    transform 0.18s var(--ease-expo-out);
+}
+.risk-band.is-current {
+  opacity: 1;
+}
+.risk-band.is-hovered {
+  opacity: 1;
+  transform: translateY(-3px);
+}
+.risk-band:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.risk-band.is-very-low { background: #cfe6da; }
+.risk-band.is-low { background: var(--sea-glass); }
+.risk-band.is-moderate { background: #86b27f; }
+.risk-band.is-high { background: var(--amber); }
+.risk-band.is-very-high { background: var(--coral); }
+.risk-band-name {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+}
+/* Where this list actually sits, over the bands. */
+.risk-marker {
+  position: absolute;
+  top: -7px;
+  bottom: -7px;
+  width: 3px;
+  margin-left: -1.5px;
+  background: var(--ink);
+  border-radius: 2px;
+  pointer-events: none;
+}
+.risk-marker i {
+  position: absolute;
+  top: -4px;
+  left: -3.5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+.risk-bar-note {
+  margin: 14px 0 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--muted);
+  min-height: 2.6em;
+}
+
+/* The mix, lifted off its own shadow the way the buttons press into theirs. */
+.mix-pie {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.mix-pie-stage {
+  position: relative;
+  width: 320px;
+}
+.mix-pie svg {
+  width: 320px;
+  height: 336px;
+  overflow: visible;
+}
+.mix-shadow {
+  fill: rgba(24, 52, 70, 0.16);
+}
+.mix-slice {
+  stroke: var(--surface);
+  stroke-width: 2;
+  cursor: pointer;
+  transition: d 0.24s var(--ease-expo-out);
+}
+.mix-slice:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.mix-tip {
+  position: absolute;
+  left: 40%;
+  top: 56%;
+  min-width: 176px;
+  padding: 10px 13px;
+  border-radius: 12px;
+  background: var(--harbor-wash);
+  border: 1px solid #b8cedc;
+  box-shadow: 0 12px 26px -16px rgba(24, 52, 70, 0.55);
+  pointer-events: none;
+  z-index: 2;
+}
+.mix-tip strong {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--font-lateral);
+  font-weight: 700;
+  font-size: 16px;
+  text-transform: uppercase;
+  color: var(--harbor-deep);
+}
+.mix-tip dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.mix-tip dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+}
+.mix-tip dt {
+  color: var(--muted);
+}
+.mix-tip dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.mix-key {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mix-key li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  color: var(--muted);
+  transition: color 0.18s var(--ease-expo-out);
+}
+.mix-key li.is-active {
+  color: var(--ink);
+}
+.mix-key i {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.mix-key b {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mix-slice,
+  .risk-band {
+    transition: none;
   }
 }
