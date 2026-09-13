@@ -46,6 +46,10 @@ type KeelState = {
   paused: boolean;
   unread: boolean;
   quickAsks: string[];
+  /** Live text selection on the page, if any — what "explain this" acts on. */
+  selection: string;
+  /** Buddy position, px offsets from its default corner. */
+  pos: { x: number; y: number };
 };
 type KeelApi = {
   setOpen: (open: boolean) => void;
@@ -54,8 +58,11 @@ type KeelApi = {
   attach: (asset: AttachedAsset) => void;
   detach: (id: string) => void;
   clearAttached: () => void;
-  ask: (question: string) => Promise<void>;
-  say: (text: string) => void;
+  /** `note` rides the request's `context.note`, already plumbed to the prompt. */
+  ask: (question: string, note?: string) => Promise<void>;
+  /** `open` false speaks through the bubble without opening the query box. */
+  say: (text: string, open?: boolean) => void;
+  setPos: (pos: { x: number; y: number }) => void;
   newConversation: () => Promise<void>;
   setDragOver: (v: boolean) => void;
   setPaused: (v: boolean) => void;
@@ -66,6 +73,8 @@ type KeelApi = {
 const KeelCtx = createContext<(KeelState & KeelApi) | null>(null);
 const OPEN_KEY = "keel-overlay-open";
 const PAUSE_KEY = "keel-motion-paused";
+const POS_KEY = "keel-buddy-pos";
+const MAX_NOTE = 300;
 const MAX_ATTACHED = 4;
 
 function read(key: string): string | null {
@@ -113,6 +122,8 @@ export function KeelProvider({ children }: { children: ReactNode }) {
   const [dragOver, setDragOver] = useState(false);
   const [unread, setUnread] = useState(false);
   const [sampleSaved, setSampleSaved] = useState<string[]>([]);
+  const [selection, setSelection] = useState("");
+  const [pos, setPosState] = useState({ x: 0, y: 0 });
   const interaction = useRef(0);
   const requestId = useRef<{ id: string; key: string } | null>(null);
 
@@ -121,6 +132,34 @@ export function KeelProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage only exists on the client.
     setOpenState(read(OPEN_KEY) === "1");
     setPausedState(read(PAUSE_KEY) === "1");
+    const raw = read(POS_KEY);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as { x: number; y: number };
+        if (typeof parsed?.x === "number" && typeof parsed?.y === "number") setPosState(parsed);
+      } catch {
+        /* a corrupt value just means the default corner */
+      }
+    }
+  }, []);
+
+  // The page selection is what "press me to learn more" explains. Reading it on
+  // a debounce keeps a drag-select from firing on every intermediate range.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const onChange = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        const text = window.getSelection()?.toString().trim() ?? "";
+        // Ignore selections inside the buddy itself, or the reply it just gave.
+        setSelection(text.length > 1 ? text.slice(0, MAX_NOTE) : "");
+      }, 180);
+    };
+    document.addEventListener("selectionchange", onChange);
+    return () => {
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("selectionchange", onChange);
+    };
   }, []);
   useEffect(() => {
     const start = (e: DragEvent) => {
@@ -180,13 +219,21 @@ export function KeelProvider({ children }: { children: ReactNode }) {
     return [...remote, ...localTurns.filter((t) => !remote.some((r) => r.id === t.id))];
   }, [profileDoc?.conversation, localTurns]);
 
-  const say = useCallback((text: string) => {
-    setLastReply({ text, sourceIds: [], id: crypto.randomUUID(), action: "none" });
-    setOpen(true);
-  }, [setOpen]);
+  const setPos = useCallback((next: { x: number; y: number }) => {
+    setPosState(next);
+    write(POS_KEY, JSON.stringify(next));
+  }, []);
+
+  const say = useCallback(
+    (text: string, open = true) => {
+      setLastReply({ text, sourceIds: [], id: crypto.randomUUID(), action: "none" });
+      if (open) setOpen(true);
+    },
+    [setOpen],
+  );
 
   const ask = useCallback(
-    async (question: string) => {
+    async (question: string, note?: string) => {
       const text = question.trim();
       if (!text || busy) return;
       interaction.current += 1;
@@ -203,12 +250,14 @@ export function KeelProvider({ children }: { children: ReactNode }) {
         setLocalTurns((t) => [...t, turn]);
         return;
       }
-      const context: KeelAskContext =
+      const trimmedNote = note?.trim().slice(0, MAX_NOTE) || undefined;
+      const base: KeelAskContext =
         pageContext.page === "asset"
           ? { page: `asset:${pageContext.assetId}`, assetIds: attached.map((a) => a.id) }
           : pageContext.page === "dashboard"
             ? { page: "dashboard", categoryId: pageContext.categoryId, assetIds: attached.map((a) => a.id) }
             : { page: "dashboard", assetIds: attached.map((a) => a.id) };
+      const context: KeelAskContext = trimmedNote ? { ...base, note: trimmedNote } : base;
       const key = `${text}|${JSON.stringify(context)}`;
       if (requestId.current?.key !== key) requestId.current = { id: crypto.randomUUID(), key };
       setBusy(true);
@@ -315,6 +364,8 @@ export function KeelProvider({ children }: { children: ReactNode }) {
       paused,
       unread,
       quickAsks,
+      selection,
+      pos,
       setOpen,
       toggle: () => setOpen(!open),
       setPageContext,
@@ -323,13 +374,14 @@ export function KeelProvider({ children }: { children: ReactNode }) {
       clearAttached,
       ask,
       say,
+      setPos,
       newConversation,
       setDragOver,
       setPaused,
       toggleSaved,
       withDemo,
     }),
-    [ask, attach, attached, busy, clearAttached, demo, detach, dragOver, dragging, error, lastReply, newConversation, notice, open, pageContext, paused, profile, profileDoc, quickAsks, revision, sampleSaved, say, session.isLoaded, sessionId, setOpen, setPageContext, setPaused, toggleSaved, turns, unread, withDemo],
+    [ask, attach, attached, busy, clearAttached, demo, detach, dragOver, dragging, error, lastReply, newConversation, notice, open, pageContext, paused, pos, profile, profileDoc, quickAsks, revision, sampleSaved, say, selection, session.isLoaded, sessionId, setOpen, setPageContext, setPaused, setPos, toggleSaved, turns, unread, withDemo],
   );
   return <KeelCtx.Provider value={value}>{children}</KeelCtx.Provider>;
 }

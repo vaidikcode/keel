@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useRef, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type DragEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { KeelMascot } from "@/components/dashboard/KeelMascot";
 import { sourceHost } from "@/lib/dashboard/api";
@@ -14,6 +14,91 @@ export function KeelOverlay() {
   const [question, setQuestion] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
+  const [hintFor, setHintFor] = useState<string | null>(null);
+  const [flip, setFlip] = useState(false);
+  const drag = useRef({ px: 0, py: 0, ox: 0, oy: 0, moved: false, active: false });
+  const pos = dragPos ?? keel.pos;
+
+  // Keep the buddy on screen when the window changes size, or one dragged to
+  // an edge becomes unreachable.
+  const clamp = useCallback((p: { x: number; y: number }) => {
+    const el = rootRef.current;
+    if (!el) return p;
+    const r = el.getBoundingClientRect();
+    const maxX = Math.max(0, window.innerWidth - 28 - (r.right - r.left) - (r.left - p.x));
+    return {
+      x: Math.min(Math.max(p.x, -(r.left - p.x) + 12), maxX),
+      y: Math.min(Math.max(p.y, -(r.top - p.y) + 12), window.innerHeight - 28 - (r.bottom - p.y)),
+    };
+  }, []);
+  useEffect(() => {
+    const onResize = () => keel.setPos(clamp(keel.pos));
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [clamp, keel]);
+
+  useEffect(() => {
+    if (!keel.open) return;
+    const check = () => {
+      const dock = dockRef.current?.getBoundingClientRect();
+      const panel = rootRef.current?.querySelector(".keel-panel")?.getBoundingClientRect();
+      if (!dock || !panel) return;
+      setFlip(dock.bottom + panel.height + 24 > window.innerHeight);
+    };
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [keel.open, pos.y]);
+
+  // A press that never moves is a click; 3px of travel makes it a drag.
+  function onPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    // The buddy itself IS a button, so it must stay draggable — only the
+    // controls inside the query box are off limits. The 3px threshold below is
+    // what keeps a press on the mascot working as a click.
+    if ((e.target as HTMLElement).closest(".keel-panel")) return;
+    drag.current = { px: e.clientX, py: e.clientY, ox: pos.x, oy: pos.y, moved: false, active: true };
+    rootRef.current?.setPointerCapture(e.pointerId);
+  }
+  function onPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
+    if (!drag.current.active) return;
+    const dx = e.clientX - drag.current.px;
+    const dy = e.clientY - drag.current.py;
+    if (!drag.current.moved && Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
+    drag.current.moved = true;
+    setDragPos({ x: drag.current.ox + dx, y: drag.current.oy + dy });
+  }
+  function endDrag(e: ReactPointerEvent<HTMLDivElement>) {
+    if (!drag.current.active) return;
+    drag.current.active = false;
+    rootRef.current?.releasePointerCapture(e.pointerId);
+    if (drag.current.moved && dragPos) keel.setPos(clamp(dragPos));
+    setDragPos(null);
+  }
+
+  // Clicking anywhere else swaps the bubble for the "select some text" hint.
+  // Tying it to the reply id means a fresh answer clears the hint by itself.
+  const currentReplyId = keel.lastReply?.id ?? null;
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => {
+      if (rootRef.current?.contains(e.target as Node)) return;
+      setHintFor(currentReplyId);
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [currentReplyId]);
+
+  const hint = hintFor !== null && hintFor === currentReplyId;
+
+  function pressBuddy() {
+    if (drag.current.moved) return;
+    if (keel.selection) {
+      void keel.ask("What does this mean?", keel.selection);
+      return;
+    }
+    keel.toggle();
+  }
 
   useEffect(() => {
     if (keel.open) textareaRef.current?.focus({ preventScroll: true });
@@ -73,7 +158,15 @@ export function KeelOverlay() {
   ].join(" ");
 
   return (
-    <div className={`keel-overlay ${keel.paused ? "motion-paused" : ""}`}>
+    <div
+      ref={rootRef}
+      className={`keel-overlay ${keel.paused ? "motion-paused" : ""} ${dragPos ? "is-moving" : ""} ${flip ? "is-flipped" : ""}`}
+      style={{ "--kx": `${pos.x}px`, "--ky": `${pos.y}px` } as React.CSSProperties}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+    >
       {keel.open && (
         <section
           id="keel-panel"
@@ -241,6 +334,19 @@ export function KeelOverlay() {
           </form>
         </section>
       )}
+      {!keel.open && (
+        <div className="keel-bubble" role="status" aria-live="polite">
+          <p>
+            {keel.busy
+              ? "Thinking it through…"
+              : keel.selection
+                ? "Press me and I'll explain what you selected."
+                : hint || !keel.lastReply
+                  ? "Select any text on the page and press me to learn more about it."
+                  : keel.lastReply.text}
+          </p>
+        </div>
+      )}
       <button
         ref={dockRef}
         type="button"
@@ -248,16 +354,16 @@ export function KeelOverlay() {
         aria-expanded={keel.open}
         aria-controls="keel-panel"
         aria-label={`${keel.open ? "Close" : "Open"} Keel${keel.attached.length ? `, ${keel.attached.length} attached` : ""}`}
-        onClick={() => keel.toggle()}
+        onClick={pressBuddy}
         onDragOver={onDragOver}
         onDragLeave={onDragLeave}
         onDrop={onDrop}
       >
-        <KeelMascot size={52} mood={mood} paused={keel.paused} />
+        <KeelMascot size={84} mood={mood} paused={keel.paused} />
         {keel.attached.length > 0 && <span className="keel-badge">{keel.attached.length}</span>}
         {keel.unread && !keel.open && <span className="keel-unread" aria-hidden="true" />}
         <span className="keel-dock-hint" aria-hidden="true">
-          {keel.dragging ? "Drop to ask Keel" : "Ask Keel"}
+          {keel.dragging ? "Drop to ask Keel" : keel.selection ? "Explain this" : "Ask Keel"}
         </span>
       </button>
     </div>

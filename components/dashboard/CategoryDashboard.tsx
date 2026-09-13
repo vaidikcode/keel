@@ -6,8 +6,7 @@ import { Icon } from "@/components/ui/Icon";
 import { KeelMascot } from "@/components/dashboard/KeelMascot";
 import { useKeel } from "@/components/keel/KeelContext";
 import { CATEGORY_BY_ID, type CategoryId } from "@/lib/market/categories";
-import { thoughtsSchema } from "@/lib/dashboard/api";
-import { KeelThoughts } from "./KeelThoughts";
+import { thoughtsSchema, splitLead } from "@/lib/dashboard/api";
 import { RankedRow } from "./RankedRow";
 import { TrendingStrip } from "./TrendingStrip";
 import { useCategoryData } from "./useCategoryData";
@@ -56,6 +55,23 @@ export function CategoryDashboard({ categoryId }: { categoryId: CategoryId }) {
       .catch(() => setThoughtsStatus("error"));
   }, [categoryId, data, keel.revision, keel.sessionId, setThoughts]);
 
+  // Opening line for the buddy: the written view's first sentence when it is
+  // ready, the hand-written blurb until then. `said` keeps it from re-speaking
+  // on every render and stomping an answer the user just asked for.
+  const said = useRef("");
+  const lead = data?.thoughts?.paragraphs[0]
+    ? splitLead(data.thoughts.paragraphs[0])[0]
+    : thoughtsStatus === "loading"
+      ? `Reading up on ${category.label.toLowerCase()}…`
+      : splitLead(category.blurb)[0];
+  useEffect(() => {
+    const key = `${categoryId}:${lead}`;
+    if (!lead || said.current === key) return;
+    said.current = key;
+    // Speak through the bubble only — the query box opens when pressed.
+    keel.say(lead, false);
+  }, [categoryId, keel, lead]);
+
   if (keel.isLoaded && !keel.demo && !keel.sessionId)
     return (
       <main className="loading-page">
@@ -64,7 +80,6 @@ export function CategoryDashboard({ categoryId }: { categoryId: CategoryId }) {
       </main>
     );
 
-  const fallbackReasons = data?.assets[0]?.fit?.reasons ?? [];
   return (
     <AppShell activeCategory={categoryId}>
       <header className="app-header">
@@ -92,12 +107,6 @@ export function CategoryDashboard({ categoryId }: { categoryId: CategoryId }) {
         </div>
       </header>
 
-      <KeelThoughts
-        category={category}
-        data={data?.thoughts ?? null}
-        status={data?.sample ? "ready" : thoughtsStatus}
-        fallbackReasons={fallbackReasons}
-      />
 
       {status === "error" && !data ? (
         <div className="empty-state" role="alert">

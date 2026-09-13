@@ -30,7 +30,7 @@ export function CategorySidebar({ activeId }: { activeId: CategoryId | null }) {
   ];
   return (
     <aside className="app-sidebar">
-      <Link href="/" className="wordmark">
+      <Link href="/dashboard" className="wordmark" aria-label="Back to dashboard">
         <span className="brand-mark">k.</span>keel<span className="brand-dot">●</span>
       </Link>
       <p className="sidebar-caption">Ranked for your answers, explained in plain words.</p>

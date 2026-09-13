@@ -92,3 +92,13 @@ export function formatPct(value: number | null, digits = 1): string {
   if (value === null || !Number.isFinite(value)) return "—";
   return `${value >= 0 ? "+" : "−"}${Math.abs(value).toFixed(digits)}%`;
 }
+
+/**
+ * First sentence of a paragraph. Keel's written view opens with a plain
+ * definition of the category; that opening sentence is all the buddy says.
+ */
+export function splitLead(text: string): [string, string] {
+  const match = text.match(/^(.+?[.!?])(\s+|$)([\s\S]*)$/);
+  if (!match) return [text, ""];
+  return [match[1], match[3] ?? ""];
+}

@@ -4,38 +4,149 @@ import { useMutation, useConvex } from "convex/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { AuthControls } from "@/components/auth/AuthControls";
 import { api } from "@/convex/_generated/api";
 import {
   defaultProfile,
   migrateProfile,
-  horizonLabels,
+  riskLabels,
   currencyFormat,
-  profileAnswers,
   type Profile,
 } from "@/lib/onboarding/questions";
-import { InterestChips } from "./InterestChips";
+import {
+  applyIntakeToProfile,
+  assetLabel,
+  cadenceLabel,
+  defaultIntake,
+  intakeSchema,
+  type Intake,
+} from "@/lib/onboarding/signals";
+import {
+  countryOptions,
+  currencyFor,
+  guessCountryFromTimeZone,
+} from "@/lib/onboarding/regions";
 import { readSessionId } from "@/lib/session";
 import { KeelMascot } from "@/components/dashboard/KeelMascot";
 import { Icon } from "@/components/ui/Icon";
+import { StickerNote } from "./StickerNote";
+import { BudgetRange } from "./BudgetRange";
+import { RocketButton } from "./RocketButton";
 export { SESSION_KEY, readSessionId } from "@/lib/session";
 const DRAFT = "keel-onboarding-v3";
-const STEP_IDS = [
-  "intent",
-  "interests",
-  "goal",
-  "country",
-  "experience",
-  "risk",
-  "lossTolerance",
-  "amount",
-  "income",
-  "emergency",
-  "debt",
-] as const;
-type StepId = (typeof STEP_IDS)[number];
-const stepIndex = (id: StepId) => STEP_IDS.indexOf(id);
 type Choice = { value: string; title: string; description?: string };
+
+/**
+ * Every user answers the same five questions. Nothing branches, so two people's
+ * answers are directly comparable — which is what makes them usable as a basis
+ * for personalisation later.
+ *
+ * Option `description` is the intuition shown on the underside of each card.
+ * It is written for someone who has never invested; the internal inference each
+ * answer implies lives in lib/onboarding/signals.ts, never on screen.
+ */
+const VEHICLES: Choice[] = [
+  {
+    value: "trading",
+    title: "Trading",
+    description:
+      "Buying and selling often, aiming to profit from short price moves. It asks for the most attention and carries the most risk.",
+  },
+  {
+    value: "stocks",
+    title: "Stocks",
+    description:
+      "Owning a small part of a company. Its value rises and falls with how that business is doing.",
+  },
+  {
+    value: "crypto",
+    title: "Crypto",
+    description:
+      "Digital assets like Bitcoin. Prices can move very sharply in both directions, including overnight.",
+  },
+  {
+    value: "unsure",
+    title: "Not sure",
+    description:
+      "A good place to start. Keel will show you a mix and explain each one before you decide.",
+  },
+];
+
+const TIMESCALES: Choice[] = [
+  {
+    value: "days",
+    title: "Days",
+    description:
+      "Positions opened and closed within a day or two. The fastest and most demanding way to invest.",
+  },
+  {
+    value: "months",
+    title: "Months",
+    description:
+      "Holding for a few months at a time. Short enough that a bad patch may not have time to recover.",
+  },
+  {
+    value: "years",
+    title: "Years",
+    description:
+      "Holding for several years. Time to ride out falls in value, which is what most first-time investors want.",
+  },
+  {
+    value: "decade",
+    title: "Decade",
+    description:
+      "Holding for ten years or more. The longest view, and the one that cares least about day-to-day noise.",
+  },
+];
+
+const RISK_BANDS: Choice[] = [
+  { value: "high", title: "High", description: "invest only 20% of my income" },
+  {
+    value: "balanced",
+    title: "Balanced",
+    description: "invest only 35% of my income",
+  },
+  {
+    value: "low",
+    title: "Low",
+    description: "less than 60% money is being invested",
+  },
+  {
+    value: "veryLow",
+    title: "Very low",
+    description:
+      "I invest almost 100% of my earnings — markets always carry risk, and very low is not zero.",
+  },
+];
+
+const TITLES = [
+  "What are you investing in?",
+  "What is your time scale?",
+  "Where are you?",
+  "", // built from the first two answers
+  "Risk tolerance",
+];
+
+const CAPTIONS = [
+  "There's no wrong answer. Hover any option to see what it means.",
+  "How long you plan to stay invested changes what suits you.",
+  "This sets the currency used for amounts. Market prices stay in US dollars.",
+  "An approximate range is plenty. You can change it whenever you like.",
+  "How much of what you earn are you putting in?",
+];
+
+const HELPS = [
+  "Different things behave differently. Knowing which one you have in mind lets Keel explain the right ideas instead of all of them at once.",
+  "Money you need soon has less time to recover from a fall in value. Your time frame matters as much as what you invest in.",
+  "Keel explores selected US stocks, US funds and selected crypto. Your country sets the currency shown for amounts; it does not imply these investments are available or suitable where you live.",
+  "This is used for hypothetical examples only. Keel never assumes you have already invested it, and never promises a return.",
+  "This isn't a test or a complete risk assessment. It's a starting point for understanding how much uncertainty feels comfortable.",
+];
+
+/**
+ * Choices are cards that rotate on hover to show their underside. The title
+ * sits on the face and the explanation waits underneath, so the question stays
+ * scannable while the intuition is one hover away — before the click, not after.
+ */
 function Choices({
   label,
   value,
@@ -57,37 +168,44 @@ function Choices({
           aria-pressed={value === c.value}
           onClick={() => onChange(c.value)}
         >
-          <span className="choice-number">
-            {String(i + 1).padStart(2, "0")}
+          <span className="choice-flip">
+            <span className="choice-face choice-front">
+              <span className="choice-number">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <strong>{c.title}</strong>
+              <span className="choice-check">
+                {value === c.value ? <Icon name="check" size={16} /> : null}
+              </span>
+            </span>
+            <span className="choice-face choice-back">
+              <small>{c.description}</small>
+            </span>
           </span>
-          <span>
-            <strong>{c.title}</strong>
-            {c.description && <small>{c.description}</small>}
-          </span>
-          <span className="choice-check">
-            {value === c.value ? <Icon name="check" size={16} /> : null}
-          </span>
+          {/* Touch devices never hover, so the same copy stays readable inline. */}
+          <small className="choice-inline">{c.description}</small>
         </button>
       ))}
     </div>
   );
 }
+
 export function Onboarding() {
   const router = useRouter(),
     { isLoaded, userId } = useAuth(),
     client = useConvex(),
     save = useMutation(api.profiles.saveExperience);
   const [profile, setProfile] = useState<Profile>(defaultProfile);
+  const [intake, setIntake] = useState<Intake>(defaultIntake);
   const [step, setStep] = useState(-1),
     [ready, setReady] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  const [help, setHelp] = useState(false),
-    [hasProfile, setHasProfile] = useState(false);
+  const [help, setHelp] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const interacted = useRef(false);
-  const total = STEP_IDS.length;
-  const current: StepId | null = step >= 0 && step < total ? STEP_IDS[step] : null;
+  const total = 5;
+
   useEffect(() => {
     if (!isLoaded) return;
     let active = true;
@@ -96,29 +214,48 @@ export function Onboarding() {
         const draftRaw = localStorage.getItem(DRAFT);
         const draft = draftRaw ? JSON.parse(draftRaw) : null;
         const restored = draft ? migrateProfile(draft.profile) : null;
-        if (restored) {
-          setProfile(restored);
-          setStep(Math.max(-1, Math.min(draft.step ?? -1, STEP_IDS.length)));
+        if (draft) {
+          if (restored) setProfile(restored);
+          const parsed = intakeSchema.safeParse(draft.intake);
+          if (parsed.success) setIntake(parsed.data);
+          // Answers come back, but the step does not: arriving at the site
+          // should always show the landing page rather than dropping someone
+          // back into the middle of a form they half remember.
         }
         setReady(true);
-        if (
-          userId &&
-          restored &&
-          new URLSearchParams(location.search).has("continue")
-        ) {
-          await save({ sessionId: userId, profile: restored });
+        const params = new URLSearchParams(location.search);
+        if (userId && restored && params.has("continue")) {
+          const savedIntake = intakeSchema.safeParse(draft?.intake);
+          await save({
+            sessionId: userId,
+            profile: savedIntake.success
+              ? applyIntakeToProfile(restored, savedIntake.data)
+              : restored,
+            intake: savedIntake.success ? savedIntake.data : undefined,
+          });
           localStorage.removeItem(DRAFT);
-          if (active) router.replace(`/dashboard/${restored.interests[0] ?? "broad-funds"}`);
+          if (active)
+            router.replace(
+              `/dashboard/${(savedIntake.success ? applyIntakeToProfile(restored, savedIntake.data) : restored).interests[0] ?? "broad-funds"}`,
+            );
           return;
+        }
+        // Coming back from sign-up: go straight into the questions rather than
+        // making someone press Get started a second time.
+        if (userId && params.has("start")) {
+          interacted.current = true;
+          setStep(0);
+          router.replace("/");
         }
         const existing = await client.query(api.profiles.getBySession, {
           sessionId: userId ?? readSessionId(),
         });
         if (!active) return;
-        setHasProfile(Boolean(existing));
         if (!draft && existing && !interacted.current) {
-          setProfile(migrateProfile(existing.profileV3 ?? existing.profileV2 ?? existing.answers));
-          if (new URLSearchParams(location.search).has("edit")) setStep(0);
+          setProfile(migrateProfile(existing.profileV2 ?? existing.answers));
+          const parsed = intakeSchema.safeParse(existing.intake);
+          if (parsed.success) setIntake(parsed.data);
+          if (params.has("edit")) setStep(0);
         }
       } catch {
         /* A local draft can still be edited while the backend reconnects. */
@@ -130,36 +267,76 @@ export function Onboarding() {
       active = false;
     };
   }, [client, isLoaded, router, save, userId]);
+
+  // Country is only a default. It is guessed without a permission prompt and
+  // without sending the visitor's IP to a third party, and stays editable.
+  useEffect(() => {
+    let active = true;
+    async function detect() {
+      let country: string | null = null;
+      try {
+        const res = await fetch("/api/region");
+        if (res.ok) {
+          const body = (await res.json()) as {
+            country?: string;
+            detected?: boolean;
+          };
+          if (body.detected && body.country) country = body.country;
+        }
+      } catch {
+        /* Falls through to the timezone guess. */
+      }
+      if (!country) country = guessCountryFromTimeZone();
+      if (!active || !country || interacted.current) return;
+      const resolved = country;
+      setIntake((p) => ({
+        ...p,
+        country: resolved,
+        currency: currencyFor(resolved),
+      }));
+    }
+    void detect();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   useEffect(() => {
     if (ready && step >= 0) {
       try {
-        localStorage.setItem(DRAFT, JSON.stringify({ profile, step }));
+        localStorage.setItem(DRAFT, JSON.stringify({ profile, intake, step }));
       } catch {
         /* Storage may be unavailable. */
       }
     }
-  }, [profile, step, ready]);
+  }, [profile, intake, step, ready]);
+
   useEffect(() => {
     if (step >= 0) heading.current?.focus();
   }, [step]);
-  const update = (key: keyof Profile, value: Profile[keyof Profile]) => {
+
+  const set = <K extends keyof Intake>(key: K, value: Intake[K]) => {
     interacted.current = true;
-    setProfile((p) => ({ ...p, [key]: value }));
+    setIntake((p) => ({ ...p, [key]: value }));
     setHelp(false);
   };
+
   async function finish() {
     setBusy(true);
     setError("");
     try {
-      if (!userId) {
-        router.push(
-          "/sign-in?redirect_url=" + encodeURIComponent("/?continue=1"),
-        );
-        return;
-      }
-      await save({ sessionId: userId, profile });
+      // The v2 profile is derived so every existing consumer — the dashboard,
+      // catalogFor, nextStep — keeps working without knowing intake exists.
+      const merged = applyIntakeToProfile(profile, intake);
+      // Answers are keyed to the account once there is one, so they follow the
+      // person rather than the browser.
+      await save({
+        sessionId: userId ?? readSessionId(),
+        profile: merged,
+        intake,
+      });
       localStorage.removeItem(DRAFT);
-      router.push(`/dashboard/${profile.interests[0] ?? "broad-funds"}`);
+      router.push(`/dashboard/${merged.interests[0] ?? "broad-funds"}`);
     } catch (err) {
       console.error("Could not save onboarding answers", err);
       setError(
@@ -168,115 +345,50 @@ export function Onboarding() {
       setBusy(false);
     }
   }
-  const copy: Record<StepId, { title: string; caption: string; help: string; track: string }> = {
-    intent: {
-      title: "What would you like help with?",
-      caption: "We'll start with what matters to you. You can change this later.",
-      help: "Learning starts with explanations. Choosing starts with your goal and circumstances. Understanding focuses on comparing an investment you're curious about.",
-      track: "Your starting point",
-    },
-    interests: {
-      title: "What would you like to explore?",
-      caption: "Pick as many as you like. The first one you pick is where your dashboard opens.",
-      help: "Keel groups investments into seven categories so you can compare like with like. Picking one does not mean it suits you; it just tells Keel where to start ranking.",
-      track: "Your interests",
-    },
-    goal: {
-      title: "What are you working toward?",
-      caption: "Your goal and time frame help put your options in context.",
-      help: "Money you need soon has less time to recover from a fall in value. Your time frame matters as much as the investment itself, so it carries real weight in your ranking.",
-      track: "Your goal",
-    },
-    country: {
-      title: "Where do you call home?",
-      caption: "This helps us explain market coverage and use familiar amounts.",
-      help: "For now, Keel explores selected US stocks, US funds and selected crypto assets. Prices stay in US dollars. If you live outside the US, Keel also opens international funds for you.",
-      track: "Your home",
-    },
-    experience: {
-      title: "Have you invested before?",
-      caption: "No right answer. I'll meet you where you are.",
-      help: "Experience changes how much detail Keel shows up front and nudges the ranking a little toward calmer options for newcomers.",
-      track: "Your experience",
-    },
-    risk: {
-      title: "How would a price drop feel?",
-      caption: "Imagine your investment fell 20%. How would you feel?",
-      help: "This isn't a test or a complete risk assessment. It's a starting point for understanding how much uncertainty feels comfortable, and it's one of the biggest inputs to your ranking.",
-      track: "Your comfort",
-    },
-    lossTolerance: {
-      title: "How big a drop could you sit through?",
-      caption: "Think about one bad year. At what point would you feel you had to act?",
-      help: "Every investment Keel ranks has fallen at some point in the last year. Comparing that fall with the size you could sit through is how Keel decides what fits.",
-      track: "Your limit",
-    },
-    amount: {
-      title: "What amount are you considering?",
-      caption: "An estimate is enough. Leave blank if you'd rather not say.",
-      help: "I'll use this amount for hypothetical scenarios, not assume you have already invested it. If you also add a monthly amount, Keel can tell whether a lump sum is large for you.",
-      track: "Your amount",
-    },
-    income: {
-      title: "How steady is your income?",
-      caption: "Steady income makes it easier to leave money invested through a rough patch.",
-      help: "If income varies or has stopped, you may need to reach your money sooner. That lowers how much price movement is comfortable, so Keel leans calmer.",
-      track: "Your income",
-    },
-    emergency: {
-      title: "Do you have money for unexpected costs?",
-      caption: "Think of money you could use for an urgent bill without selling investments.",
-      help: "Cash for unexpected expenses can help you avoid selling investments at a bad time. Without it, Keel opens bond and cash funds alongside your interests.",
-      track: "Your cash buffer",
-    },
-    debt: {
-      title: "Do you have expensive debt?",
-      caption: "For example, credit card balances or other high-interest borrowing.",
-      help: "Borrowing costs are part of the picture when deciding what to do with available money. High-interest debt usually costs more than investments earn.",
-      track: "Your borrowing",
-    },
-  };
-  const answers = profileAnswers(profile);
-  const summaryRows: Array<[string, string, StepId]> = [
-    ["What you want help with", answers.intent, "intent"],
-    ["Categories to explore", answers.interests, "interests"],
-    ["Your goal", answers.goal, "goal"],
-    ["Time frame", answers.horizon, "goal"],
-    ["Home and currency", `${answers.country} · ${answers.currency}`, "country"],
-    ["Experience", answers.experience, "experience"],
-    ["Comfort with price changes", answers.risk, "risk"],
-    ["Drop you could sit through", answers.lossTolerance, "lossTolerance"],
-    ["Amount", `${answers.amount} · ${answers.monthly}`, "amount"],
-    ["Income", answers.income, "income"],
-    ["Cash for surprises", answers.emergency, "emergency"],
-    ["Expensive debt", answers.debt, "debt"],
-  ];
-  const canContinue = current !== "interests" || profile.interests.length > 0;
+
+  const pct = Math.min(100, ((step + 1) / total) * 100);
+  const titles = [...TITLES];
+  titles[3] =
+    "How much do you have " +
+    cadenceLabel[intake.timescale] +
+    " to invest in " +
+    assetLabel[intake.vehicle] +
+    "?";
+
   return (
     <div className="onboarding">
-      <header className="onboard-header">
-        <Link href="/" className="wordmark">
-          <span className="brand-mark">k.</span>keel
-          <span className="brand-dot">●</span>
-        </Link>
-        <span className="header-note">A little clarity goes a long way.</span>
-        <div className="onboard-header-end">
-          {hasProfile ? (
-            <Link className="text-button" href="/dashboard">
-              Your dashboard <Icon name="arrow" size={16} />
+      {/* No header bar: it was a thin strip of chrome above the content. The
+          mark and the one link float over the page so the design owns the
+          whole screen. */}
+      <div className="floating-mark">
+        {step < 0 ? (
+          <Link href="/" className="wordmark" aria-label="Keel home">
+            <span className="brand-mark">k.</span>
+          </Link>
+        ) : (
+          /* Once the questions are open the mark is decoration only. There is
+             nothing useful behind it here, and leaving it clickable dropped
+             people back onto the landing page mid-flow. */
+          <span className="wordmark mark-idle" aria-hidden="true">
+            <span className="brand-mark">k.</span>
+          </span>
+        )}
+        {step < 0 ? (
+          <div className="floating-mark-end">
+            <Link
+              className="button secondary demo-button"
+              href={userId ? "/dashboard" : "/dashboard?demo=1"}
+            >
+              {userId ? "DASHBOARD" : "DEMO"}
             </Link>
-          ) : (
-            <span className="label">YOUR MONEY, UNDERSTOOD</span>
-          )}
-          <AuthControls />
-        </div>
-      </header>
+          </div>
+        ) : null}
+      </div>
       {step < 0 ? (
-        <main className="welcome">
+        <>
+          <main className="welcome">
           <section className="welcome-copy">
-            <span className="eyebrow">
-              <span className="status-dot" /> A CALMER WAY TO START
-            </span>
+            <span className="eyebrow">Your finances are your friend</span>
             <h1>
               Your money.
               <br />A little more
@@ -288,19 +400,24 @@ export function Onboarding() {
               one small step at a time.
             </p>
             <div className="welcome-actions">
-              <button
-                className="button primary"
-                disabled={!ready}
-                onClick={() => {
+              <RocketButton
+                disabled={!ready || !isLoaded}
+                onLaunch={() => {
                   interacted.current = true;
+                  // Frictionless: an account is created first so answers
+                  // belong to a person, then the questions open immediately.
+                  if (!userId) {
+                    router.push(
+                      "/sign-up?redirect_url=" +
+                        encodeURIComponent("/?start=1"),
+                    );
+                    return;
+                  }
                   setStep(0);
                 }}
               >
-                Let’s find your first step <Icon name="arrow" />
-              </button>
-              <Link className="text-button" href="/dashboard?demo=1">
-                Explore an example <Icon name="chevron" size={16} />
-              </Link>
+                Get started
+              </RocketButton>
             </div>
             <div className="welcome-foot">
               <span>
@@ -314,14 +431,14 @@ export function Onboarding() {
           <section className="welcome-world" aria-label="Meet Keel">
             <div className="orbit orbit-one" />
             <div className="orbit orbit-two" />
-            <div className="world-note note-top">
+            <StickerNote id="note-top" className="world-note note-top" delay={0}>
               <Icon name="spark" />
               <span>
                 Big questions.
                 <br />
                 <strong>Small, clear steps.</strong>
               </span>
-            </div>
+            </StickerNote>
             <div className="world-mascot">
               <KeelMascot size={290} mood="wave" />
             </div>
@@ -330,7 +447,11 @@ export function Onboarding() {
               <br />
               Let’s figure this out together.”
             </div>
-            <div className="world-note note-bottom">
+            <StickerNote
+              id="note-bottom"
+              className="world-note note-bottom"
+              delay={90}
+            >
               <span className="mini-bars">
                 <i />
                 <i />
@@ -343,342 +464,147 @@ export function Onboarding() {
                 <br />
                 <strong>More understanding.</strong>
               </span>
-            </div>
+            </StickerNote>
+            <StickerNote
+              id="note-coin"
+              className="world-note note-coin"
+              delay={180}
+            >
+              <span className="sticker-chip chip-amber">%</span>
+              <span>
+                Plain english.
+                <br />
+                <strong>Always.</strong>
+              </span>
+            </StickerNote>
+            <StickerNote
+              id="note-pace"
+              className="world-note note-pace"
+              delay={270}
+            >
+              <span className="sticker-chip chip-sea">✓</span>
+              <span>
+                <strong>Never a forecast.</strong>
+              </span>
+            </StickerNote>
             <span className="world-star star-one">✳</span>
             <span className="world-star star-two">✳</span>
           </section>
-        </main>
+          </main>
+        </>
       ) : (
         <main className="question-layout">
-          <aside className="onboard-aside">
-            <span className="eyebrow">A PLAN THAT STARTS WITH YOU</span>
-            <h2>
-              Small steps.
-              <br />
-              Clearer choices.
-            </h2>
-            <div className="step-track">
-              {STEP_IDS.map((id) => copy[id].track).map((label, i) => (
-                <div
-                  className={
-                    step === i ? "current" : step > i ? "complete" : ""
-                  }
-                  key={label}
-                >
-                  <span>
-                    {step > i ? <Icon name="check" size={13} /> : i + 1}
-                  </span>
-                  {label}
-                </div>
-              ))}
-            </div>
-            <div className="aside-companion">
-              <KeelMascot mood={help ? "question" : "idle"} size={95} />
-              <p>
-                “You don’t need to know all the answers. That’s why I’m here.”
-              </p>
-            </div>
-          </aside>
           <section className="question-panel">
             <div className="question-top">
-              <button
-                className="text-button"
-                onClick={() => {
-                  setStep((s) => s - 1);
-                  setHelp(false);
-                }}
-                disabled={busy}
-              >
-                <Icon name="back" size={16} /> Back
-              </button>
               <span className="label">
                 {step >= total
                   ? "YOUR STARTING POINT"
-                  : `STEP ${step + 1} OF ${total}`}
+                  : "STEP " + (step + 1) + " OF " + total}
               </span>
             </div>
-            <div className="progress-track">
-              <span
-                style={{
-                  width: `${Math.min(100, ((step + 1) / total) * 100)}%`,
-                }}
-              />
-            </div>
             <div key={step} className="question-content enter">
-              <h1 ref={heading} tabIndex={-1}>
-                {current ? copy[current].title : "Here's where we'll start."}
+              <h1 ref={heading} tabIndex={-1} className="question-title">
+                {step >= total ? "Here's where we'll start." : titles[step]}
               </h1>
               <p className="question-caption">
-                {current
-                  ? copy[current].caption
-                  : "A starting point, not a permanent decision. You can edit any answer."}
+                {step >= total
+                  ? "A starting point, not a permanent decision. You can edit any answer."
+                  : CAPTIONS[step]}
               </p>
-              {current === "intent" && (
+              {step === 0 && (
                 <Choices
-                  label={copy.intent.title}
-                  value={profile.intent}
-                  onChange={(v) => update("intent", v as Profile["intent"])}
-                  choices={[
-                    {
-                      value: "learn",
-                      title: "Learn the basics",
-                      description:
-                        "Understand investing before making a decision",
-                    },
-                    {
-                      value: "choose",
-                      title: "Explore investments for me",
-                      description: "Compare options with my goals in mind",
-                    },
-                    {
-                      value: "understand",
-                      title: "Understand an investment",
-                      description:
-                        "Look closer at something I own or am curious about",
-                    },
-                  ]}
+                  label={titles[0]}
+                  value={intake.vehicle}
+                  onChange={(v) => set("vehicle", v as Intake["vehicle"])}
+                  choices={VEHICLES}
                 />
               )}
-              {current === "interests" && (
-                <InterestChips
-                  value={profile.interests}
-                  onChange={(next) => update("interests", next)}
+              {step === 1 && (
+                <Choices
+                  label={titles[1]}
+                  value={intake.timescale}
+                  onChange={(v) => set("timescale", v as Intake["timescale"])}
+                  choices={TIMESCALES}
                 />
               )}
-              {current === "goal" && (
+              {step === 2 && (
                 <>
-                  <Choices
-                    label="Your goal"
-                    value={profile.goal}
-                    onChange={(v) => update("goal", v as Profile["goal"])}
-                    choices={[
-                      { value: "explore", title: "I'm just exploring" },
-                      {
-                        value: "purchase",
-                        title: "Save for a future purchase",
-                      },
-                      { value: "wealth", title: "Build long-term savings" },
-                      { value: "retirement", title: "Plan for retirement" },
-                    ]}
-                  />
-                  <label className="field-label" htmlFor="horizon">
-                    When might you need this money?
+                  <label className="field-label" htmlFor="country">
+                    Country
                   </label>
                   <select
-                    id="horizon"
-                    value={profile.horizon}
-                    onChange={(e) =>
-                      update("horizon", e.target.value as Profile["horizon"])
-                    }
+                    id="country"
+                    value={intake.country}
+                    onChange={(e) => {
+                      interacted.current = true;
+                      const country = e.target.value;
+                      setIntake((p) => ({
+                        ...p,
+                        country,
+                        currency: currencyFor(country),
+                      }));
+                    }}
                   >
-                    {Object.entries(horizonLabels).map(([v, label]) => (
-                      <option key={v} value={v}>
-                        {label}
+                    {countryOptions().map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.name}
                       </option>
                     ))}
                   </select>
-                </>
-              )}
-              {current === "country" && (
-                <>
-                  <Choices
-                    label="Country"
-                    value={profile.country}
-                    onChange={(v) => {
-                      update("country", v as Profile["country"]);
-                      update(
-                        "currency",
-                        v === "IN" ? "INR" : v === "GB" ? "GBP" : "USD",
-                      );
-                    }}
-                    choices={[
-                      { value: "US", title: "United States" },
-                      { value: "IN", title: "India" },
-                      { value: "GB", title: "United Kingdom" },
-                      { value: "other", title: "Somewhere else" },
-                    ]}
-                  />
-                  <label className="field-label" htmlFor="currency">
-                    Currency for your scenarios
-                  </label>
-                  <select
-                    id="currency"
-                    value={profile.currency}
-                    onChange={(e) =>
-                      update("currency", e.target.value as Profile["currency"])
-                    }
-                  >
-                    <option value="USD">US dollar · USD</option>
-                    <option value="INR">Indian rupee · INR</option>
-                    <option value="GBP">British pound · GBP</option>
-                  </select>
                   <p className="fine-print">
-                    Currently exploring selected US investments and selected
-                    crypto assets. Market prices remain in USD.
+                    Amounts are shown in {intake.currency}. Market prices remain
+                    in USD without currency conversion.
                   </p>
                 </>
               )}
-              {current === "experience" && (
-                <>
-                  <Choices
-                    label="Investing experience"
-                    value={profile.experience}
-                    onChange={(v) =>
-                      update("experience", v as Profile["experience"])
-                    }
-                    choices={[
-                      { value: "new", title: "I'm completely new" },
-                      { value: "some", title: "I've tried a little" },
-                      { value: "experienced", title: "I invest regularly" },
-                    ]}
-                  />
-                </>
-              )}
-              {current === "risk" && (
-                <>
-                  <div className="risk-example">
-                    <span>{currencyFormat(1000, profile.currency)}</span>
-                    <span className="risk-arrow">
-                      ↘ <small>−20%</small>
-                    </span>
-                    <strong>{currencyFormat(800, profile.currency)}</strong>
-                  </div>
-                  <Choices
-                    label="Comfort with losses"
-                    value={profile.risk}
-                    onChange={(v) => update("risk", v as Profile["risk"])}
-                    choices={[
-                      { value: "careful", title: "Very uncomfortable" },
-                      {
-                        value: "balanced",
-                        title: "Concerned, but I could wait",
-                      },
-                      {
-                        value: "comfortable",
-                        title: "Comfortable with large changes",
-                      },
-                      { value: "unknown", title: "I'm not sure yet" },
-                    ]}
-                  />
-                </>
-              )}
-              {current === "lossTolerance" && (
-                <Choices
-                  label={copy.lossTolerance.title}
-                  value={String(profile.lossTolerance)}
-                  onChange={(v) =>
-                    update(
-                      "lossTolerance",
-                      v === "unknown" ? "unknown" : (Number(v) as Profile["lossTolerance"]),
-                    )
-                  }
-                  choices={[
-                    {
-                      value: "5",
-                      title: "About 5%",
-                      description: `${currencyFormat(1000, profile.currency)} becoming ${currencyFormat(950, profile.currency)}`,
-                    },
-                    {
-                      value: "10",
-                      title: "About 10%",
-                      description: `${currencyFormat(1000, profile.currency)} becoming ${currencyFormat(900, profile.currency)}`,
-                    },
-                    {
-                      value: "20",
-                      title: "About 20%",
-                      description: `${currencyFormat(1000, profile.currency)} becoming ${currencyFormat(800, profile.currency)}`,
-                    },
-                    {
-                      value: "40",
-                      title: "40% or more",
-                      description: `${currencyFormat(1000, profile.currency)} becoming ${currencyFormat(600, profile.currency)} or less`,
-                    },
-                    { value: "unknown", title: "I'm not sure yet" },
-                  ]}
+              {step === 3 && (
+                <BudgetRange
+                  low={intake.budgetLow}
+                  high={intake.budgetHigh}
+                  currency={intake.currency}
+                  onChange={(low, high) => {
+                    interacted.current = true;
+                    setIntake((p) => ({
+                      ...p,
+                      budgetLow: low,
+                      budgetHigh: high,
+                    }));
+                  }}
                 />
               )}
-              {current === "income" && (
+              {step === 4 && (
                 <Choices
-                  label={copy.income.title}
-                  value={profile.income}
-                  onChange={(v) => update("income", v as Profile["income"])}
-                  choices={[
-                    { value: "stable", title: "Steady, month to month" },
-                    { value: "variable", title: "It varies a lot" },
-                    { value: "none", title: "No income right now" },
-                    { value: "unknown", title: "Prefer not to say" },
-                  ]}
-                />
-              )}
-              {current === "amount" && (
-                <div className="amount-fields">
-                  <label htmlFor="amount">
-                    Amount to start with · {profile.currency}
-                  </label>
-                  <input
-                    id="amount"
-                    type="number"
-                    min="0"
-                    max="1000000000"
-                    placeholder="Prefer not to say"
-                    value={profile.amount ?? ""}
-                    onChange={(e) =>
-                      update(
-                        "amount",
-                        e.target.value === ""
-                          ? null
-                          : Math.min(1e9, Math.max(0, Number(e.target.value))),
-                      )
-                    }
-                  />
-                  <label htmlFor="monthly">
-                    Monthly contribution, if any · {profile.currency}
-                  </label>
-                  <input
-                    id="monthly"
-                    type="number"
-                    min="0"
-                    max="10000000"
-                    placeholder="Optional"
-                    value={profile.monthly ?? ""}
-                    onChange={(e) =>
-                      update(
-                        "monthly",
-                        e.target.value === ""
-                          ? null
-                          : Math.min(1e7, Math.max(0, Number(e.target.value))),
-                      )
-                    }
-                  />
-                </div>
-              )}
-              {(current === "emergency" || current === "debt") && (
-                <Choices
-                  label={copy[current].title}
-                  value={current === "emergency" ? profile.emergency : profile.debt}
-                  onChange={(v) =>
-                    update(current, v as Profile["debt"])
-                  }
-                  choices={[
-                    {
-                      value: "yes",
-                      title:
-                        current === "emergency"
-                          ? "Yes, I have money set aside"
-                          : "Yes, I have high-interest borrowing",
-                    },
-                    { value: "no", title: current === "emergency" ? "Not yet" : "No" },
-                    {
-                      value: "unknown",
-                      title: "I'm not sure / prefer not to say",
-                    },
-                  ]}
+                  label={titles[4]}
+                  value={intake.riskBand}
+                  onChange={(v) => set("riskBand", v as Intake["riskBand"])}
+                  choices={RISK_BANDS}
                 />
               )}
               {step >= total && (
                 <div className="summary-list">
-                  {summaryRows.map(([label, value, id]) => (
-                    <button key={label} type="button" onClick={() => setStep(stepIndex(id))}>
+                  {[
+                    ["What you invest in", assetLabel[intake.vehicle], 0],
+                    ["Time scale", cadenceLabel[intake.timescale], 1],
+                    ["Currency", intake.currency, 2],
+                    [
+                      "Amount",
+                      intake.budgetLow === null
+                        ? "Not set"
+                        : currencyFormat(intake.budgetLow, intake.currency) +
+                          " – " +
+                          currencyFormat(
+                            intake.budgetHigh ?? intake.budgetLow,
+                            intake.currency,
+                          ),
+                      3,
+                    ],
+                    [
+                      "Comfort with risk",
+                      riskLabels[applyIntakeToProfile(profile, intake).risk],
+                      4,
+                    ],
+                  ].map(([label, value, index]) => (
+                    <button key={label} onClick={() => setStep(Number(index))}>
                       <span>
                         <small>{label}</small>
                         <strong>{value}</strong>
@@ -697,7 +623,7 @@ export function Onboarding() {
                   >
                     <Icon name="help" size={17} /> Why does Keel ask?
                   </button>
-                  {help && current && <p>{copy[current].help}</p>}
+                  {help && <p>{HELPS[step]}</p>}
                 </div>
               )}
               {error && (
@@ -709,13 +635,11 @@ export function Onboarding() {
                 <span className="fine-print">
                   {busy
                     ? "Saving your answers…"
-                    : !canContinue
-                      ? "Pick at least one category to continue."
-                      : "You can change this anytime."}
+                    : "You can change this anytime."}
                 </span>
                 <button
                   className="button primary"
-                  disabled={busy || !canContinue}
+                  disabled={busy}
                   onClick={() => {
                     if (step >= total) void finish();
                     else {
@@ -727,13 +651,36 @@ export function Onboarding() {
                   {busy
                     ? "Saving…"
                     : step >= total
-                      ? "See my ranked options"
+                      ? "See my options"
                       : "Continue"}
                   <Icon name="arrow" size={18} />
                 </button>
               </div>
             </div>
           </section>
+          {/* The progress bar lives at the foot of the screen and Keel rides
+              it, so the only thing competing with the question is the question. */}
+          <div
+            className="progress-rail"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={total}
+            aria-valuenow={Math.min(step + 1, total)}
+            aria-label="Onboarding progress"
+          >
+            <div className="progress-rail-track">
+              <span
+                className="progress-rail-fill"
+                style={{ width: `${pct}%` }}
+              />
+              <span className="progress-rail-keel" style={{ left: `${pct}%` }}>
+                <KeelMascot size={70} mood={help ? "question" : "idle"} />
+              </span>
+            </div>
+            <span className="progress-rail-label">
+              {step >= total ? "All done" : `${step + 1} / ${total}`}
+            </span>
+          </div>
         </main>
       )}
       <footer className="onboard-footer">
